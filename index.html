@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Los cuatro desafíos que la IA está transformando en la investigación científica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+:root{
+  --paper:#FFFFFF; --ink:#0B2545; --sci:#1668E3; --gold:#E3A41A;
+  --mist:#EEF3FA; --line:#D5DEEA; --muted:#5B6B82;
+  --red:#D9483B; --green:#1F9D6B;
+  --display:'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --body:'Figtree', 'Segoe UI', system-ui, sans-serif;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--paper);overflow:hidden;font-family:var(--body);color:var(--ink)}
+button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none}
+button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:6px}
+[tabindex]:focus:not(:focus-visible),svg g:focus{outline:none}
+
+/* ---------- escenario 16:9 ---------- */
+#viewport{position:fixed;inset:0;display:grid;place-items:center;background:var(--paper)}
+#stage{width:1600px;height:900px;position:relative;transform-origin:center center;overflow:hidden;background:var(--paper)}
+
+.slide{position:absolute;inset:0;padding:96px 110px 120px;display:none}
+.slide.active{display:block}
+.slide.enter-next{animation:enterNext .9s var(--ease) both}
+.slide.enter-prev{animation:enterPrev .9s var(--ease) both}
+.slide.leave-next{display:block;animation:leaveNext .55s var(--ease) both}
+.slide.leave-prev{display:block;animation:leavePrev .55s var(--ease) both}
+@keyframes enterNext{from{opacity:0;transform:translateX(160px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes enterPrev{from{opacity:0;transform:translateX(-160px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes leaveNext{to{opacity:0;transform:translateX(-120px) scale(.98)}}
+@keyframes leavePrev{to{opacity:0;transform:translateX(120px) scale(.98)}}
+
+/* barrido de transición: banda azul con filo dorado */
+#wipe{position:absolute;inset:0;pointer-events:none;z-index:40;display:flex}
+#wipe i{flex:1;background:var(--sci);transform:scaleY(0);transform-origin:bottom}
+#wipe i:nth-child(2n){background:var(--ink)}
+#wipe.go i{animation:bar .8s var(--ease) both}
+#wipe.go i:nth-child(1){animation-delay:0s}
+#wipe.go i:nth-child(2){animation-delay:.04s}
+#wipe.go i:nth-child(3){animation-delay:.08s}
+#wipe.go i:nth-child(4){animation-delay:.12s}
+#wipe.go i:nth-child(5){animation-delay:.16s}
+#wipe.back i{transform-origin:top}
+@keyframes bar{0%{transform:scaleY(0)}45%{transform:scaleY(1)}55%{transform:scaleY(1)}100%{transform:scaleY(0);transform-origin:top}}
+
+/* entradas escalonadas dentro de la diapositiva */
+.slide.active .in{animation:rise .9s var(--ease) both;animation-delay:calc(.25s + var(--d,0) * .12s)}
+@keyframes rise{from{opacity:0;transform:translateY(34px)}to{opacity:1;transform:none}}
+.slide.active .grow{animation:grow 1s var(--ease) both;animation-delay:calc(.3s + var(--d,0) * .12s)}
+@keyframes grow{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+
+/* pasos (fragmentos) */
+[data-step]{transition:opacity .6s var(--ease),transform .6s var(--ease),filter .6s}
+[data-step]:not(.shown){opacity:0;transform:translateY(24px) scale(.98);filter:blur(4px);pointer-events:none}
+
+/* ---------- cromo ---------- */
+#tag{position:absolute;left:110px;top:40px;font-size:18px;color:var(--muted);z-index:30;display:flex;gap:14px;align-items:center}
+#tag b{color:var(--ink);font-weight:700}
+#tag .chip{width:10px;height:10px;border-radius:50%;background:var(--gold)}
+#count{position:absolute;right:110px;top:40px;font-size:18px;color:var(--muted);font-variant-numeric:tabular-nums;z-index:30}
+#count .st{color:var(--sci);font-weight:700;margin-left:10px}
+#progress{position:absolute;left:110px;right:110px;bottom:52px;height:2px;background:var(--line);z-index:30;cursor:pointer}
+#progress .fill{position:absolute;left:0;top:0;bottom:0;background:var(--sci);transition:width .9s var(--ease)}
+#progress .dot{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 6px rgba(227,164,26,.18);transition:left .9s var(--ease)}
+#progress .tick{position:absolute;top:-5px;width:2px;height:12px;background:transparent}
+#progress:hover{height:6px}
+#help{position:absolute;right:110px;bottom:18px;font-size:14px;color:var(--muted);z-index:30;opacity:.8}
+#navbtns{position:absolute;left:110px;bottom:12px;display:flex;gap:8px;z-index:30}
+#navbtns button{width:34px;height:30px;border-radius:8px;color:var(--muted);font-size:18px}
+#navbtns button:hover{background:var(--mist);color:var(--ink)}
+
+/* ---------- tipografía ---------- */
+.kicker{font-size:22px;color:var(--sci);font-weight:600;margin-bottom:18px}
+.term{font-family:var(--display);font-weight:800;font-size:112px;line-height:.95;letter-spacing:-.035em;color:var(--ink)}
+.term.md{font-size:84px}
+.term.sm{font-size:64px}
+.sub{font-size:30px;line-height:1.35;color:var(--muted);max-width:760px;margin-top:26px}
+.note{font-size:19px;color:var(--muted);line-height:1.45}
+.big-quote{font-family:var(--display);font-size:58px;font-weight:700;line-height:1.08;letter-spacing:-.02em;max-width:1200px}
+.u-gold{box-shadow:inset 0 -.28em 0 rgba(227,164,26,.35)}
+
+/* layouts */
+.split{display:grid;grid-template-columns:1fr 1.05fr;gap:70px;height:100%;align-items:center}
+.split.wide-right{grid-template-columns:.8fr 1.2fr}
+.center{height:100%;display:flex;flex-direction:column;justify-content:center}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+/* botones */
+.btn{white-space:nowrap;padding:14px 24px;border-radius:40px;font-size:20px;font-weight:600;border:2px solid var(--ink);transition:transform .25s var(--ease),background .25s,color .25s}
+.btn:hover{transform:translateY(-2px)}
+.btn.solid{background:var(--ink);color:#fff}
+.btn.blue{background:var(--sci);border-color:var(--sci);color:#fff}
+.btn.ghost{border-color:var(--line);color:var(--muted)}
+.btn:active{transform:scale(.96)}
+
+/* temporizador */
+.timer{display:flex;align-items:center;gap:22px}
+.timer svg{width:150px;height:150px;transform:rotate(-90deg)}
+.timer .track{fill:none;stroke:var(--mist);stroke-width:10}
+.timer .arc{fill:none;stroke:var(--sci);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .4s}
+.timer.low .arc{stroke:var(--red)}
+.timer .t-read{font-family:var(--display);font-size:56px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.timer .t-ctrl{display:flex;gap:8px;margin-top:8px}
+.timer .t-ctrl button{font-size:16px;padding:6px 14px;border-radius:20px;border:1.5px solid var(--line);color:var(--muted)}
+.timer .t-ctrl button:hover{border-color:var(--ink);color:var(--ink)}
+
+/* pasos de taller */
+.steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:18px;margin-top:34px}
+.steps li{counter-increment:s;display:grid;grid-template-columns:52px 1fr;align-items:center;font-size:27px;line-height:1.3}
+.steps li::before{content:counter(s);width:40px;height:40px;border-radius:50%;border:2px solid var(--sci);color:var(--sci);display:grid;place-items:center;font-weight:700;font-size:19px}
+
+/* panel de detalle */
+.detail{min-height:120px;border-left:6px solid var(--gold);border-radius:0 14px 14px 0;background:var(--mist);padding:18px 24px 18px 26px;font-size:26px;line-height:1.4}
+.detail h4{font-family:var(--display);font-size:34px;letter-spacing:-.01em;margin-bottom:6px;color:var(--sci);display:flex;align-items:center;gap:12px}
+.detail h4 .dstep{font-family:var(--body);font-size:16px;font-weight:700;font-style:normal;color:#8A5E00;background:#FBE8BC;border-radius:20px;padding:4px 13px;flex:none;letter-spacing:0}
+.detail.swap{animation:swap .55s var(--ease)}
+@keyframes swap{
+  0%{opacity:0;transform:translateX(44px);background:#FBE8BC}
+  60%{background:#FBE8BC}
+  100%{opacity:1;transform:none;background:var(--mist)}}
+
+.hint{font-size:17px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.hint::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold);animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(227,164,26,.5)}50%{box-shadow:0 0 0 8px rgba(227,164,26,0)}}
+
+/* bucles lentos para esquemas SVG */
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes spinSlow{to{transform:rotate(360deg)}}
+@keyframes dash{to{stroke-dashoffset:0}}
+@keyframes flow{to{stroke-dashoffset:-40}}
+.floaty{animation:floaty 5s ease-in-out infinite}
+.flowline{stroke-dasharray:8 12;animation:flow 1.6s linear infinite}
+
+@media (prefers-reduced-motion:reduce){
+  .slide.enter-next,.slide.enter-prev,.slide.active .in,.slide.active .grow{animation-duration:.01s}
+  #wipe{display:none}
+  .floaty,.flowline{animation:none}
+  .spot-on,svg .spot-on,.pn.cur i,.slide.active .pc.spot-on{animation:none}
+  .spot-on{box-shadow:0 0 0 5px rgba(227,164,26,.8),0 18px 42px rgba(11,37,69,.16)}
+  .slide.active .pc.spot-on{box-shadow:0 0 0 5px #fff,0 0 0 11px rgba(227,164,26,.95),0 20px 44px rgba(11,37,69,.2)}
+  .pn.cur i{box-shadow:0 0 0 5px rgba(227,164,26,.45)}
+}
+
+
+/* ciclo de investigación (motivo recurrente) */
+.cyc{overflow:visible}
+.cyc .ring{fill:none;stroke:var(--line);stroke-width:3;stroke-dasharray:6 12}
+.cyc .orb{transform-origin:300px 300px;animation:spinSlow 14s linear infinite}
+.cyc .nd circle{fill:#fff;stroke:var(--ink);stroke-width:4;transition:fill .5s,stroke .5s}
+.cyc .nd .ic{fill:none;stroke:var(--ink);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;transition:stroke .5s}
+.cyc .nd text{font-family:var(--display);font-weight:700;font-size:30px;fill:var(--ink);text-anchor:middle}
+.cyc .nd.act circle{fill:var(--sci);stroke:var(--sci)}
+.cyc .nd.act .ic{stroke:#fff}
+.cyc .nd.act text{fill:var(--sci)}
+.cyc .nd.act{animation:ndPulse 2.4s ease-in-out infinite}
+.cyc .nd{transform-box:fill-box;transform-origin:center}
+@keyframes ndPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.cyc .core-n{font-family:var(--display);font-weight:800;font-size:150px;fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+
+/* número gigante de los separadores */
+.bignum{font-family:var(--display);font-weight:800;font-size:380px;line-height:.8;letter-spacing:-.06em;color:transparent;-webkit-text-stroke:3px var(--line);position:relative;display:inline-block}
+.bignum::after{content:attr(data-n);position:absolute;inset:0;color:var(--sci);-webkit-text-stroke:0;clip-path:inset(100% 0 0 0)}
+.slide.active .bignum::after{animation:numFill 1.4s .5s var(--ease) forwards}
+@keyframes numFill{to{clip-path:inset(0 0 0 0)}}
+.divider{display:grid;grid-template-columns:auto 1fr 420px;gap:60px;align-items:center;height:100%}
+
+/* votación */
+.vote{display:flex;flex-direction:column;gap:18px;margin-top:30px;width:720px}
+.vote button{display:grid;grid-template-columns:250px 1fr 60px;align-items:center;gap:18px;text-align:left;font-size:27px;font-weight:600;padding:8px 0}
+.vote .bar{height:30px;border-radius:15px;background:var(--mist);position:relative;overflow:hidden}
+.vote .bar span{position:absolute;inset:0 auto 0 0;width:0;border-radius:15px;background:var(--sci);transition:width .7s var(--ease)}
+.vote button.top .bar span{background:var(--gold)}
+.vote .n{font-family:var(--display);font-size:34px;font-variant-numeric:tabular-nums;text-align:right}
+
+/* bucle humano-IA */
+.loop{width:680px;height:640px;overflow:visible}
+.loop .arc{fill:none;stroke:var(--line);stroke-width:4;marker-end:url(#arL)}
+.loop .arc.flowline{stroke:var(--sci)}
+.loop .nd{cursor:pointer}
+.loop .nd rect{stroke-width:3;transition:transform .35s var(--ease)}
+.loop .nd:hover rect,.loop .nd.on rect{stroke:var(--gold);stroke-width:5}
+.loop text{font-family:var(--display);font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+
+/* sistema de prompts */
+.sys{display:grid;grid-template-columns:350px 290px 1fr;gap:34px;margin-top:22px;align-items:start}
+.inp{border:2px solid var(--line);border-radius:18px;padding:16px 20px;margin-bottom:14px;transition:border-color .4s}
+.inp small{display:block;font-size:17px;font-weight:700;color:var(--sci);margin-bottom:4px}
+.inp div{font-size:21px;line-height:1.3;outline:none}
+.inp div:focus{background:var(--mist)}
+.inp.feed{border-color:var(--sci)}
+.chain{position:relative;display:flex;flex-direction:column;gap:8px;padding-left:10px}
+.chain::before{content:"";position:absolute;left:27px;top:18px;bottom:18px;width:3px;background:var(--line)}
+.chain .fillline{position:absolute;left:27px;top:18px;width:3px;height:0;background:var(--sci);transition:height .6s linear}
+.pn{display:flex;align-items:center;gap:14px;font-size:19px;line-height:1.15;min-height:36px;font-weight:600;position:relative;color:var(--muted);transition:color .4s}
+.pn i{width:36px;height:36px;border-radius:50%;border:3px solid var(--line);background:#fff;display:grid;place-items:center;font-style:normal;font-size:17px;font-weight:700;flex:none;transition:all .4s var(--ease)}
+.pn.on{color:var(--ink)} .pn.on i{border-color:var(--sci);background:var(--sci);color:#fff;transform:scale(1.1)}
+.draft{border:2px solid var(--ink);border-radius:8px;padding:22px 28px;min-height:470px;position:relative}
+.draft h4{font-family:var(--display);font-size:26px;margin-bottom:4px}
+.draft .meta{font-size:16px;color:var(--muted);margin-bottom:12px}
+.dsgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 26px}
+.ds{margin-top:8px;opacity:.25;transition:opacity .5s}
+.ds.wide{grid-column:1 / -1}
+.ds .rl{display:flex;align-items:center;gap:8px}
+.ds .rl em{font-style:normal;font-size:13px;font-weight:700;color:var(--muted);width:22px}
+.ds .rl i{flex:1;margin-bottom:0}
+.ds .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.ds .chips span{font-size:14px;font-weight:700;padding:3px 10px;border-radius:14px;background:var(--mist);color:var(--muted);transform:scale(.6);opacity:0;transition:all .5s cubic-bezier(.3,1.5,.5,1)}
+.ds.on .chips span{transform:none;opacity:1;background:#E8F0FD;color:var(--sci)}
+.ds.on .chips span:nth-child(2){transition-delay:.1s}.ds.on .chips span:nth-child(3){transition-delay:.2s}.ds.on .chips span:nth-child(4){transition-delay:.3s}
+.ds b{font-size:16px;display:block;margin-bottom:5px}
+.ds i{display:block;height:8px;border-radius:4px;background:var(--mist);margin-bottom:6px;width:0;transition:width .9s var(--ease)}
+.ds.on{opacity:1} .ds.on i{background:#C9D8EE}
+.ds.on i{width:92%} .ds.on i:nth-of-type(2){width:64%}
+.ds.on .rl i{width:auto}
+.watch{position:absolute;right:24px;top:22px;font-family:var(--display);font-weight:700;font-size:30px;font-variant-numeric:tabular-nums;color:var(--sci)}
+.audit-flag{margin-top:14px;font-size:17px;font-weight:700;color:var(--red);opacity:0;transition:opacity .5s}
+.audit-flag.on{opacity:1}
+
+/* auditoría */
+.checks{display:flex;flex-direction:column;gap:14px;width:720px}
+.ck{display:flex;align-items:center;gap:18px;font-size:26px;font-weight:600;padding:16px 22px;border:2px solid var(--line);border-radius:16px;cursor:pointer;user-select:none;transition:all .35s var(--ease)}
+.ck i{width:36px;height:36px;border-radius:10px;border:3px solid var(--line);flex:none;display:grid;place-items:center;font-style:normal;color:#fff;font-size:22px;transition:all .35s var(--ease)}
+.ck.on{border-color:var(--green);background:#EAF6F0}
+.ck.on i{background:var(--green);border-color:var(--green)}
+.ring-prog{width:260px;height:260px;margin-top:40px}
+.ring-prog circle{fill:none;stroke-width:18}
+.ring-prog .bg{stroke:var(--mist)} .ring-prog .fg{stroke:var(--green);stroke-linecap:round;transition:stroke-dashoffset .8s var(--ease);transform:rotate(-90deg);transform-origin:130px 130px}
+.ring-prog text{font-family:var(--display);font-weight:800;font-size:56px;fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+
+/* flujo bibliométrico */
+.pipe{width:1380px;height:400px;overflow:visible;margin-top:10px}
+.pipe .st{cursor:pointer}
+.pipe .st rect{fill:#fff;stroke:var(--ink);stroke-width:3;transition:all .3s}
+.pipe .st:hover rect,.pipe .st.on rect{stroke:var(--gold);stroke-width:5}
+.pipe .st.own rect{stroke:var(--sci);stroke-width:4}
+.pipe text{font-family:var(--display);font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none;fill:var(--ink)}
+.pipe .sm{font-family:var(--body);font-weight:500;font-size:16px;fill:var(--muted)}
+
+/* árbol */
+.tree{width:640px;height:700px;overflow:visible}
+.tree .grp{cursor:pointer}
+.tree .roots path{fill:none;stroke:#8A6A3F;stroke-width:9;stroke-linecap:round;stroke-dasharray:400;stroke-dashoffset:400}
+.slide.active .tree .roots path{animation:dash 1.6s .4s var(--ease) forwards}
+.tree .trunk path{fill:#8A6A3F;transform-box:fill-box;transform-origin:bottom;transform:scaleY(0)}
+.slide.active .tree .trunk path{animation:trunkUp 1.2s 1.2s var(--ease) forwards}
+@keyframes trunkUp{to{transform:scaleY(1)}}
+.tree .leaves circle{transform-box:fill-box;transform-origin:center;transform:scale(0)}
+.slide.active .tree .leaves circle{animation:leafPop .7s var(--ease) forwards, sway 5s ease-in-out infinite}
+@keyframes leafPop{to{transform:scale(1)}}
+@keyframes sway{0%,100%{translate:0 0}50%{translate:4px -3px}}
+.tree .grp.on path,.tree .grp.on circle{filter:drop-shadow(0 0 0 var(--gold)) brightness(1.08)}
+.tree .lab{font-family:var(--display);font-weight:700;font-size:28px;fill:var(--ink)}
+.tree .grp:hover .lab,.tree .grp.on .lab{fill:var(--sci)}
+
+/* lenguaje natural a código */
+.tabs{display:flex;gap:10px;margin:20px 0 16px}
+.tab{padding:10px 20px;border-radius:30px;border:2px solid var(--line);font-size:19px;font-weight:600;color:var(--muted);transition:all .3s}
+.tab.on{border-color:var(--sci);background:var(--sci);color:#fff}
+.nl{display:grid;grid-template-columns:1fr 560px;gap:34px}
+.bubble{background:var(--mist);border-radius:22px 22px 22px 4px;padding:18px 24px;font-size:24px;line-height:1.35;min-height:92px}
+.bubble::before{content:"Tu instrucción";display:block;font-size:15px;font-weight:700;color:var(--sci);margin-bottom:4px}
+.code{margin-top:16px;border:2px solid var(--line);border-radius:16px;padding:18px 22px;font-family:ui-monospace,Consolas,'Courier New',monospace;font-size:18px;line-height:1.55;white-space:pre;min-height:260px;color:var(--ink);overflow:hidden}
+.code .cur{display:inline-block;width:10px;height:20px;background:var(--gold);vertical-align:middle;animation:flick 1s steps(2) infinite}
+@keyframes flick{50%{opacity:0}}
+.outcard{border:2px solid var(--ink);border-radius:18px;padding:18px 22px;height:480px;display:flex;flex-direction:column}
+.outcard header{display:flex;justify-content:space-between;align-items:center;font-size:17px;color:var(--muted);margin-bottom:10px}
+.outcard header b{color:var(--ink);font-size:20px}
+.badge{padding:5px 12px;border-radius:20px;background:#FDF5E4;color:#8A5E00;font-weight:700;font-size:15px}
+.outcard svg{flex:1;width:100%}
+
+/* escalera */
+.ladder{width:760px;height:600px;overflow:visible}
+.ladder .step{cursor:pointer}
+.ladder .step rect{transition:fill .35s}
+.ladder .step:hover rect,.ladder .step.on rect{fill:var(--sci)}
+.ladder .step:hover text,.ladder .step.on text{fill:#fff}
+.ladder text{font-family:var(--display);font-weight:700;font-size:25px;fill:var(--ink);text-anchor:middle;dominant-baseline:central;pointer-events:none;transition:fill .35s}
+.ladder #climber{transition:transform .8s cubic-bezier(.3,1.5,.5,1)}
+.slide.active .ladder .step{animation:rise .8s var(--ease) both}
+
+/* políticas: tarjetas que giran */
+.pcards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%}
+.pc{height:190px;perspective:1000px;cursor:pointer}
+.pc .in2{position:relative;width:100%;height:100%;transition:transform .8s var(--ease);transform-style:preserve-3d}
+.pc.flip .in2{transform:rotateY(180deg)}
+.pc .fc,.pc .bk{position:absolute;inset:0;border-radius:20px;padding:22px;backface-visibility:hidden;display:flex;flex-direction:column;justify-content:space-between}
+.pc .fc{border:2px solid var(--line);background:#fff;font-size:25px;font-weight:700;line-height:1.2}
+.pc .fc small{font-size:17px;font-weight:600;color:var(--muted)}
+.pc .bk{transform:rotateY(180deg);color:#fff;font-size:22px;line-height:1.3}
+.pc .bk b{font-family:var(--display);font-size:46px;line-height:1}
+.pc .bk.y{background:var(--green)} .pc .bk.n{background:var(--red)} .pc .bk.m{background:var(--gold);color:var(--ink)}
+
+/* SciSpace */
+.idea{border:2px solid var(--line);border-radius:22px;padding:30px 34px;font-size:32px;line-height:1.45;min-height:230px;position:relative}
+.idea mark{background:none;box-shadow:inset 0 -.3em 0 rgba(227,164,26,.35);color:inherit}
+.cites{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px;min-height:60px}
+.cite{padding:10px 18px;border-radius:30px;font-size:20px;font-weight:700;border:2px solid;animation:citeIn .7s cubic-bezier(.3,1.4,.5,1) both}
+.cite.s{border-color:var(--green);color:var(--green)} .cite.c{border-color:var(--red);color:var(--red)} .cite.m{border-color:#B07A00;color:#B07A00}
+@keyframes citeIn{from{opacity:0;transform:translate(120px,-40px) scale(.6)}to{opacity:1;transform:none}}
+.scan{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--gold);border-radius:3px;opacity:0}
+.scan.go{animation:scan 1.1s var(--ease)}
+@keyframes scan{0%{left:0;opacity:1}100%{left:100%;opacity:0}}
+
+/* Prism */
+.prism{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:22px}
+.tex{border:2px solid var(--line);border-radius:16px;padding:20px 22px;font-family:ui-monospace,Consolas,'Courier New',monospace;font-size:17px;line-height:1.7;height:560px;overflow:hidden;white-space:pre}
+.tex .l{opacity:0;transition:opacity .3s}
+.tex .l.on{opacity:1}
+.tex .k{color:var(--sci);font-weight:700}
+.page{border:2px solid var(--ink);border-radius:6px;height:560px;padding:34px 44px;position:relative;font-family:Georgia,'Times New Roman',serif}
+.pp{opacity:0;transform:translateY(14px);transition:all .6s var(--ease)}
+.pp.on{opacity:1;transform:none}
+.page .pt{font-size:25px;font-weight:700;text-align:center;line-height:1.2}
+.page .pa{font-size:15px;text-align:center;color:var(--muted);margin:6px 0 12px}
+.page .abs{font-size:14px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 0;color:var(--muted);line-height:1.4}
+.page h5{font-size:17px;margin:12px 0 6px}
+.page .ln{height:6px;border-radius:3px;background:var(--mist);margin-bottom:6px}
+.page .eq{text-align:center;font-size:20px;margin:8px 0;font-style:italic}
+.page .frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 6px}
+.page .frac span:first-child{border-bottom:1.5px solid var(--ink);padding:0 4px}
+.page .fig{display:flex;gap:6px;align-items:flex-end;height:70px;justify-content:center;margin:6px 0}
+.page .fig i{width:22px;background:#9DC0F5;border-radius:3px 3px 0 0}
+.page .refs{font-size:13px;color:var(--muted);line-height:1.45}
+
+/* conclusiones */
+.concl{display:grid;grid-template-columns:1fr 1fr;gap:18px 40px;margin-top:34px}
+.cc{display:grid;grid-template-columns:70px 1fr;gap:18px;align-items:start;font-size:24px;line-height:1.35}
+.cc svg{width:70px;height:70px}
+.cc b{display:block;font-family:var(--display);font-size:28px;margin-bottom:2px}
+.transv{margin-top:34px;padding:22px 30px;border-radius:18px;background:var(--ink);color:#fff;font-size:30px;font-family:var(--display);font-weight:700;letter-spacing:-.01em}
+.contact{display:flex;flex-direction:column;gap:10px;margin-top:50px;font-size:24px;color:var(--muted)}
+.contact b{color:var(--ink);font-size:30px}
+.src{list-style:none;display:flex;flex-direction:column;gap:12px;margin-top:36px;font-size:22px;line-height:1.35;max-width:1300px}
+.src li{padding-left:28px;position:relative}
+.src li::before{content:"";position:absolute;left:0;top:12px;width:12px;height:2px;background:var(--gold)}
+
+/* ---------- FOCO: el elemento que se explica ahora ---------- */
+.spot-dim{opacity:.26;filter:saturate(.15);transition:opacity .55s var(--ease),filter .55s var(--ease)}
+
+/* bloques HTML */
+.spot-on{position:relative;z-index:6;border-radius:16px;
+  transform:scale(1.04);transition:transform .45s var(--ease),box-shadow .45s;
+  animation:spotPulse 2.4s ease-in-out infinite}
+@keyframes spotPulse{
+  0%,100%{box-shadow:0 0 0 4px rgba(227,164,26,.8),0 18px 42px rgba(11,37,69,.16)}
+  50%    {box-shadow:0 0 0 13px rgba(227,164,26,.13),0 18px 42px rgba(11,37,69,.16)}}
+
+/* grupos SVG */
+svg .spot-on{transform-box:fill-box;transform-origin:center;
+  filter:drop-shadow(0 0 16px rgba(227,164,26,.95));
+  animation:spotSvg 2.6s ease-in-out infinite}
+@keyframes spotSvg{0%,100%{transform:scale(1.07)}50%{transform:scale(1.12)}}
+.loop .nd.spot-on rect,.pipe .st.spot-on rect,.pipe .st.own.spot-on rect{stroke:var(--gold);stroke-width:6}
+svg .spot-on text{font-weight:800}
+/* el árbol es una figura continua: halo sí, escalado no */
+.tree .grp.spot-on{animation:none;transform:none;filter:drop-shadow(0 0 20px rgba(227,164,26,.95)) brightness(1.08)}
+.tree .grp.spot-on .lab{fill:var(--sci)}
+/* la escalera lleva al escalador encima: sin escalado */
+.ladder .step.spot-on{animation:none;transform:none}
+.ladder .step.spot-on rect{fill:var(--sci)}
+.ladder .step.spot-on text{fill:#fff}
+/* pestañas y tarjetas */
+.tab.spot-on{transform:scale(1.08)}
+/* las caras traseras son verdes, rojas o doradas: aro blanco intermedio para que el dorado siempre se vea */
+/* .slide.active .in gana por especificidad: hay que igualarla para que el aro se aplique */
+.slide.active .pc.spot-on{border-radius:20px;transform:scale(1.07);animation:spotPulseCard 2.4s ease-in-out infinite}
+@keyframes spotPulseCard{
+  0%,100%{box-shadow:0 0 0 5px #fff,0 0 0 11px rgba(227,164,26,.95),0 20px 44px rgba(11,37,69,.2)}
+  50%    {box-shadow:0 0 0 5px #fff,0 0 0 18px rgba(227,164,26,.2),0 20px 44px rgba(11,37,69,.2)}}
+.cc.spot-on{padding:12px 18px;margin:-12px -18px}
+.transv.spot-on{border-radius:18px}
+.ck.spot-on{border-color:var(--gold)}
+/* caja de la idea en SciSpace */
+.idea.spot-on{border-color:var(--gold);border-radius:22px;transform:none}
+
+/* sistema de prompts: la sección que se está generando (sin atenuar las previas) */
+.pn.cur{color:var(--ink)}
+.pn.cur i{box-shadow:0 0 0 5px rgba(227,164,26,.35);animation:spotPulseSm 2s ease-in-out infinite}
+@keyframes spotPulseSm{
+  0%,100%{box-shadow:0 0 0 4px rgba(227,164,26,.45)}
+  50%    {box-shadow:0 0 0 10px rgba(227,164,26,.10)}}
+.ds.cur{box-shadow:0 0 0 3px rgba(227,164,26,.85);border-radius:10px;padding:4px 8px;margin-left:-8px;margin-right:-8px}
+.audit-flag.cur{box-shadow:0 0 0 3px rgba(217,72,59,.35);border-radius:10px;padding:6px 12px;display:inline-block}
+
+/* Prism: correspondencia línea LaTeX <-> trozo de página */
+.tex .l.cur{background:#FBE8BC;border-radius:5px;box-shadow:0 0 0 4px #FBE8BC}
+.page .pp.cur{background:#FDF5E4;border-radius:6px;box-shadow:0 0 0 6px #FDF5E4}
+
+/* ---------- láminas de datos (contexto) ---------- */
+.dhead{font-family:var(--display);font-weight:700;font-size:52px;line-height:1.06;letter-spacing:-.02em;max-width:1280px}
+.dhead em{font-style:normal;color:var(--sci)}
+.apunte{margin-top:16px;font-size:21px;line-height:1.45;color:var(--muted);max-width:1100px}
+.lienzo{width:100%;height:420px;margin-top:22px}
+.lienzo.corto{height:250px}
+.dsplit{display:grid;grid-template-columns:500px 1fr;gap:60px;height:100%;align-items:center}
+.dsplit .dhead{font-size:44px}
+.dsplit .lienzo{height:600px;margin-top:0}
+.nota{margin-top:28px;border-left:6px solid var(--gold);border-radius:0 14px 14px 0;background:var(--mist);padding:16px 22px 16px 24px;font-size:21px;line-height:1.42}
+.fuente{position:absolute;left:110px;right:110px;bottom:52px;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px 28px;font-size:15px;line-height:1.4;color:var(--muted)}
+.fuente em{font-style:normal;font-weight:700;color:var(--ink);margin-right:4px}
+.fuente .n{color:var(--sci);font-weight:700;margin-right:4px}
+.fuente a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--line)}
+.fuente a:hover{color:var(--sci);border-bottom-color:var(--sci)}
+/* la cifra sola */
+.cifra{display:flex;align-items:center;gap:56px;margin-top:26px}
+.cifra-n{font-family:var(--display);font-weight:800;font-size:250px;line-height:.92;letter-spacing:-.05em;color:var(--sci);font-variant-numeric:tabular-nums;flex:none}
+.cifra-l{font-size:30px;line-height:1.35;color:var(--ink);max-width:640px}
+/* pictograma */
+.picto{display:grid;grid-template-columns:repeat(10,56px);gap:20px}
+.picto i{width:56px;height:56px;border-radius:50%;background:#DCE4EF}
+.picto i.on{background:var(--sci)}
+.slide.active .picto i{animation:dotPop .6s cubic-bezier(.3,1.5,.5,1) both;animation-delay:calc(.5s + var(--i) * .05s)}
+@keyframes dotPop{from{opacity:0;transform:scale(0)}}
+.picto-ley{display:flex;flex-direction:column;gap:12px;margin-top:34px;font-size:21px;color:var(--muted)}
+.picto-ley span{display:flex;align-items:center;gap:12px}
+.picto-ley i{width:18px;height:18px;border-radius:50%;background:#DCE4EF}
+.picto-ley i.on{background:var(--sci)}
+.picto-ley b{color:var(--ink);font-family:var(--display);font-size:24px}
+/* fuentes en dos columnas */
+.srcgrid{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:30px}
+.srcgrid h3{font-size:20px;font-weight:700;color:var(--sci)}
+.srcgrid .src{margin-top:16px;font-size:18px;gap:10px}
+.srcgrid .src li::before{top:10px}
+@media (prefers-reduced-motion:reduce){ .slide.active .picto i{animation:none} }
+
+/* ---------- portada: Semana de la Ciencia, Universidad de los Llanos ---------- */
+.slide.por{padding:0}
+.por-bg{position:absolute;inset:0;background:#EDEDED url(portada.png) center/cover no-repeat}
+.slide.active .por-bg{animation:porZoom 9s var(--ease) both}
+@keyframes porZoom{from{transform:scale(1.06)}to{transform:none}}
+.por-card{position:absolute;left:50%;top:548px;width:800px;transform:translateX(-50%);text-align:center;
+  background:rgba(255,255,255,.86);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  border:1px solid rgba(213,222,234,.9);border-radius:24px;padding:22px 36px 22px;box-shadow:0 24px 60px rgba(11,37,69,.14);overflow:hidden}
+.por-card::before{content:"";position:absolute;left:0;top:0;height:5px;width:100%;background:linear-gradient(90deg,var(--sci),var(--gold));transform:scaleX(0);transform-origin:left}
+.slide.active .por-card{animation:cardIn 1s .2s var(--ease) both}
+.slide.active .por-card::before{animation:barIn 1.2s .6s var(--ease) forwards}
+@keyframes cardIn{from{opacity:0;transform:translate(-50%,40px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes barIn{to{transform:scaleX(1)}}
+.por-pill{display:inline-block;font-size:15px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sci);background:#E8F0FD;border-radius:30px;padding:6px 16px}
+.por-title{font-family:var(--display);font-weight:800;font-size:46px;line-height:1.06;letter-spacing:-.03em;color:var(--ink);margin-top:12px}
+.por-title .ln{display:block;overflow:hidden;padding-bottom:4px}
+.por-title .ln>span{display:inline-block;transform:translateY(110%)}
+.slide.active .por-title .ln>span{animation:lnUp 1s var(--ease) forwards;animation-delay:calc(.7s + var(--i) * .28s)}
+@keyframes lnUp{to{transform:none}}
+.por-title .b{color:var(--sci)}
+.por-who{margin-top:14px;font-size:21px;color:var(--muted)}
+.por-who b{color:var(--ink);font-weight:700}
+.slide.active .por-who{animation:rise .9s 1.8s var(--ease) both}
+
+/* ---------- contenido ---------- */
+.ruta{display:grid;grid-template-columns:repeat(3,1fr);gap:56px;margin-top:110px;position:relative}
+.ruta::before{content:"";position:absolute;left:0;right:0;top:62px;height:2px;background:var(--line)}
+.ruta .rdot{position:absolute;top:63px;left:0;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 6px rgba(227,164,26,.18);z-index:1}
+.slide.active .ruta .rdot{animation:rdot 4.5s 1.2s var(--ease) infinite}
+@keyframes rdot{0%{left:0}75%,100%{left:100%}}
+.rc{position:relative}
+.rc .rn{position:relative;z-index:2;font-family:var(--display);font-weight:800;font-size:124px;line-height:1;letter-spacing:-.05em;color:var(--paper);-webkit-text-stroke:3px var(--sci);background:var(--paper);display:inline-block;padding-right:18px}
+.rc svg{display:block;width:84px;height:84px;margin-top:30px}
+.rc h3{font-family:var(--display);font-weight:800;font-size:48px;line-height:1.05;letter-spacing:-.02em;margin-top:18px}
+.rc p{font-size:28px;line-height:1.35;color:var(--muted);margin-top:12px;max-width:420px}
+
+/* ---------- bloque conceptual (lienzo interno 1280×720 escalado ×1,25) ---------- */
+.slide.llm{padding:0}
+.llm{--cobalt:#1668E3;--cobalt-soft:#E8F0FD;--amber:#E3A41A;--amber-txt:#A86F00;--amber-soft:#FDF5E4;--faint:#A9B4C4;--chip:#EEF3FA;
+  --sans:'Figtree','Segoe UI',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+.llm-box{position:absolute;left:0;top:0;width:1280px;height:720px;padding:64px 88px;transform:scale(1.25);transform-origin:0 0;font-family:var(--sans)}
+.llm .eyebrow{font-family:var(--mono);font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--cobalt);margin:0 0 12px}
+.llm h1,.llm h2{font-family:var(--display);font-weight:700;text-wrap:balance;letter-spacing:-.02em;color:var(--ink)}
+/* apertura */
+.llm .net{position:absolute;inset:0;width:100%;height:100%}
+.llm .lfade{position:absolute;inset:0;background:linear-gradient(90deg,#fff 34%,rgba(255,255,255,.75) 52%,rgba(255,255,255,0) 78%);pointer-events:none}
+.llm .intro{position:relative;margin-top:110px}
+.llm .intro h1{font-size:84px;line-height:1.08}
+.llm .line{display:flex;align-items:baseline;gap:22px;overflow:hidden;padding-bottom:4px}
+.llm .line .num{font-family:var(--mono);font-size:16px;font-weight:400;color:var(--faint);letter-spacing:.08em;opacity:0;transition:opacity .8s}
+.llm .line .txt{display:inline-block;transform:translateY(110%);transition:transform 1.1s var(--ease)}
+.llm .line.hl .txt{color:var(--cobalt)}
+.llm.active .line .txt{transform:none;transition-delay:calc(.35s + var(--i)*.45s)}
+.llm.active .line .num{opacity:1;transition-delay:calc(.6s + var(--i)*.45s)}
+.llm .rule{width:120px;height:4px;border-radius:2px;background:var(--cobalt);margin-top:40px;transform:scaleX(0);transform-origin:left;transition:transform 1s var(--ease)}
+.llm.active .rule{transform:none;transition-delay:1.9s}
+/* espacio de vectores */
+.llm-space canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none}
+.llm-space canvas:active{cursor:grabbing}
+.llm .top{position:absolute;left:88px;top:62px;pointer-events:none}
+.llm .qrow{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;margin-top:4px}
+.llm .qc{font-family:var(--display);font-weight:500;font-size:26px;padding:5px 12px;border-radius:10px;background:var(--chip);border:1.5px solid var(--line);color:var(--ink);
+  transition:background .5s,border-color .5s,color .5s,transform .5s var(--ease)}
+.llm .qc.act{border-color:var(--cobalt);color:var(--cobalt);background:#fff}
+.llm .qc.hot{background:var(--cobalt);border-color:var(--cobalt);color:#fff;transform:translateY(-3px)}
+.llm .qa{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:26px;color:var(--amber-txt);opacity:0;transform:translateX(-14px);transition:opacity .6s,transform .7s var(--ease);margin-left:6px}
+.llm .qa.on{opacity:1;transform:none}
+.llm .qa b{background:var(--amber-soft);border:1.5px solid var(--amber);border-radius:10px;padding:4px 14px;font-weight:700}
+.llm .caps{position:absolute;left:88px;bottom:60px;width:900px;height:50px;pointer-events:none}
+.llm .cp{position:absolute;left:0;bottom:0;font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:-.01em;color:var(--ink);opacity:0;transform:translateY(12px);transition:opacity .5s,transform .6s var(--ease);white-space:nowrap}
+.llm .cp.cur{opacity:1;transform:none}
+.llm .cp em{font-style:normal;color:var(--cobalt)}
+.llm .cp b{color:var(--amber-txt)}
+.llm .hud{position:absolute;right:88px;top:62px;width:250px;opacity:0;transform:translateY(-8px);transition:opacity .6s,transform .6s var(--ease);pointer-events:none;
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.llm .hud.on{opacity:1;transform:none}
+.llm .hud .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.llm .hud ol{list-style:none;display:flex;flex-direction:column;gap:6px}
+.llm .hud li{display:grid;grid-template-columns:100px 1fr;align-items:center;gap:10px;font-size:15px}
+.llm .hud .w{font-family:var(--display);font-weight:500;white-space:nowrap}
+.llm .hud li:first-child .w{color:var(--amber-txt)}
+.llm .hud .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.llm .hud .bar i{display:block;height:100%;background:var(--cobalt);border-radius:3px;transition:width .3s}
+.llm .hud li:first-child .bar i{background:var(--amber)}
+/* resumen */
+.llm-res h2{font-size:58px;line-height:1.05;max-width:980px;margin-top:110px}
+.llm .llchain{display:flex;margin-top:90px;align-items:stretch}
+.llm .link{flex:1;padding:0 20px 0 0;position:relative}
+.llm .link .n{font-family:var(--mono);font-size:13px;color:var(--cobalt)}
+.llm .link .t{font-family:var(--display);font-size:30px;font-weight:700;margin-top:6px}
+.llm .link .d{font-size:16px;color:var(--muted);margin-top:6px;line-height:1.45}
+.llm .link::after{content:"";position:absolute;left:0;right:20px;top:-14px;height:3px;border-radius:2px;background:var(--cobalt);transform:scaleX(0);transform-origin:left;transition:transform .7s var(--ease);transition-delay:calc(var(--k)*160ms + .2s)}
+.llm .llchain.on .link::after{transform:scaleX(1)}
+.llm .llchain .link{opacity:0;transform:translateY(14px);transition:opacity .6s,transform .7s var(--ease);transition-delay:calc(var(--k)*160ms)}
+.llm .llchain.on .link{opacity:1;transform:none}
+/* IA vs. agente */
+.llm .vs-eye{position:absolute;left:88px;top:62px}
+.llm .vcol{position:absolute;top:165px;width:512px}
+.llm .vcol h2{font-size:44px;line-height:1.05}
+.llm .vsub{font-size:20px;color:var(--muted);height:28px;margin-top:4px}
+.llm .vcol svg{display:block;width:512px;height:320px;margin-top:10px;overflow:visible}
+.llm .vline{position:absolute;left:640px;top:185px;height:390px;width:1px;background:var(--line)}
+.llm .vsb{position:absolute;left:620px;top:369px;width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid var(--line);font-family:var(--mono);font-size:13px;color:var(--muted);display:grid;place-items:center}
+.llm .rv{opacity:0;transform:translateY(12px);transition:opacity .6s,transform .7s var(--ease)}
+.llm .rv.on{opacity:1;transform:none}
+.llm .chipb{fill:var(--chip);stroke:var(--line);stroke-width:1.5}
+.llm .chipt{font-family:var(--display);font-size:19px;fill:var(--ink);text-anchor:middle}
+.llm .goalr{stroke:var(--cobalt)}
+.llm .goalt{font-family:var(--sans);font-size:16px;font-weight:600;fill:var(--ink);text-anchor:middle}
+.llm .chipo{fill:var(--amber-soft);stroke:var(--amber);stroke-width:1.5}
+.llm .chipot{font-family:var(--display);font-weight:700;font-size:20px;fill:var(--amber-txt);text-anchor:middle}
+.llm .chipot.s{font-size:16px}
+.llm .mbg{fill:var(--cobalt-soft);stroke:var(--cobalt);stroke-width:2}
+.llm .model line{stroke:var(--cobalt);stroke-width:1.5;opacity:.55}
+.llm .model .nd{fill:var(--cobalt)}
+.llm .mpulse{fill:none;stroke:var(--cobalt);stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center}
+@keyframes vpulse{0%{opacity:.7;transform:scale(1)}100%{opacity:0;transform:scale(1.45)}}
+.llm .fl{fill:none;stroke:var(--cobalt);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:60;stroke-dashoffset:60;transition:stroke-dashoffset .6s var(--ease)}
+.llm .ah{fill:var(--cobalt)}
+.llm .lf .fade,.llm .lf .fade2,.llm .lf .ah{opacity:0;transition:opacity .5s}
+.llm .lf.go .fade{opacity:1}
+.llm .lf.go .f1{stroke-dashoffset:0;transition-delay:.4s}
+.llm .lf.go .a1{opacity:1;transition-delay:.9s}
+.llm .lf.go .mpulse{animation:vpulse 1s 1s 2}
+.llm .lf.go .f2{stroke-dashoffset:0;transition-delay:2.1s}
+.llm .lf.go .a2{opacity:1;transition-delay:2.6s}
+.llm .lf.go .fade2{opacity:1;transition-delay:2.7s}
+.llm .rs .ag1,.llm .rs .ag2,.llm .rs .ag3{opacity:0;transition:opacity .6s}
+.llm .rs.ag .ag1{opacity:1}
+.llm .rs.ag .ag2{opacity:1;transition-delay:.4s}
+.llm .rs.ag .ag3{opacity:1;transition-delay:.8s}
+.llm .rs .aout{opacity:0;transform:translateY(8px);transition:opacity .6s,transform .6s var(--ease)}
+.llm .rs.fin .aout{opacity:1;transform:none}
+.llm .rs.run .mpulse{animation:vpulse 1.2s infinite}
+.llm .track{fill:none;stroke:var(--faint);stroke-width:2;stroke-dasharray:4 6}
+.llm .conn{fill:none;stroke:var(--faint);stroke-width:1.5}
+.llm .dot{fill:var(--cobalt)}
+.llm .lapt{font-family:var(--mono);font-size:12px;fill:var(--muted);text-anchor:middle}
+.llm .smal{font-family:var(--mono);font-size:10px;letter-spacing:.1em;fill:var(--muted);text-anchor:middle}
+.llm .stn rect{fill:#fff;stroke:var(--cobalt);stroke-width:1.5;transition:fill .25s,stroke .25s}
+.llm .stn text{font-family:var(--sans);font-weight:700;font-size:14px;fill:var(--cobalt);text-anchor:middle;transition:fill .25s}
+.llm .stn.on rect{fill:var(--cobalt)}
+.llm .stn.on text{fill:#fff}
+.llm .stn.ok rect{fill:var(--amber);stroke:var(--amber)}
+.llm .stn.ok text{fill:var(--ink)}
+.llm .tool{color:var(--muted)}
+.llm .tool .bg{fill:#fff;stroke:var(--line);stroke-width:1.5;transition:fill .3s,stroke .3s}
+.llm .tool .ic{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.llm .tool text{fill:currentColor;stroke:none;text-anchor:middle}
+.llm .tool.on{color:#fff}
+.llm .tool.on .bg{fill:var(--cobalt);stroke:var(--cobalt)}
+.llm .tool.done{color:var(--cobalt)}
+.llm .tool.done .bg{fill:var(--cobalt-soft);stroke:var(--cobalt)}
+.llm .inst,.llm .inst *{transition:none!important}
+@media (prefers-reduced-motion:reduce){
+  .slide.active .por-bg,.slide.active .por-card,.slide.active .por-card::before,.slide.active .por-title .ln>span,.slide.active .por-who,.slide.active .ruta .rdot{animation-duration:.01s;animation-delay:0s}
+  .llm *{transition-duration:.01s!important;transition-delay:0s!important}
+  .llm .mpulse{animation:none!important}
+}
+
+/* ---------- prompt de ejemplo (del taller) ---------- */
+.pe-wrap{display:grid;grid-template-columns:.8fr 1.2fr;gap:44px;margin-top:30px;align-items:start}
+.pe-card{border:2px solid var(--line);border-radius:18px;padding:18px 22px}
+.pe-card small{display:block;font-size:17px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sci);margin-bottom:8px}
+.pe-card .pe-obj{font-size:23px;line-height:1.4;outline:none;border-radius:10px;padding:10px 12px;margin:0 -12px;background:var(--mist);min-height:96px}
+.pe-card .pe-obj:focus{box-shadow:0 0 0 3px var(--gold)}
+.pe-hint{font-size:16px;color:var(--muted);margin-top:10px}
+.pe-wrap .steps{margin-top:28px;gap:16px}
+.pe-wrap .steps li{font-size:24px}
+.pe-box{border:2px solid var(--line);border-left:6px solid var(--sci);border-radius:14px;background:var(--mist);overflow:hidden}
+.pe-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 10px 22px;border-bottom:1px solid var(--line);background:#fff}
+.pe-bar span{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace;font-size:15px;color:var(--muted)}
+.pe-bar .btn{padding:8px 18px;font-size:17px}
+.pe-txt{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace;font-size:16px;line-height:1.5;white-space:pre-wrap;padding:18px 24px;color:var(--ink)}
+.pe-txt b{color:var(--sci);font-weight:600}
+.pe-txt .ph{box-shadow:inset 0 -.45em 0 rgba(227,164,26,.35)}
+
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+  <div id="tag"><span class="chip"></span><b>IA en la investigación</b><span>Cuatro desafíos</span></div>
+  <div id="count"></div>
+
+
+<!-- 1 PORTADA · Semana de la Ciencia, Universidad de los Llanos -->
+<section class="slide por">
+  <div class="por-bg" role="img" aria-label="Semana de la Ciencia, Universidad de los Llanos: Ciencia y apropiación social en el territorio"></div>
+  <div class="por-card">
+    <span class="por-pill">Conferencia</span>
+    <h1 class="por-title">
+      <span class="ln" style="--i:0"><span>Los <span class="b">cuatro desafíos</span></span></span>
+      <span class="ln" style="--i:1"><span>que la <span class="u-gold">IA</span> está transformando</span></span>
+      <span class="ln" style="--i:2"><span>en la investigación científica</span></span>
+    </h1>
+    <p class="por-who">Conferencista: <b>Oscar Iván Vargas Pineda</b> · 29 de septiembre de 2026</p>
+  </div>
+</section>
+
+<!-- 2 CONTENIDO -->
+<section class="slide">
+  <div class="kicker in">Ruta de la conferencia</div>
+  <h2 class="term md in" style="--d:1">Contenido</h2>
+  <div class="ruta">
+    <span class="rdot"></span>
+    <div class="rc in" style="--d:2"><span class="rn">01</span>
+      <svg viewBox="0 0 64 64"><rect x="8" y="34" width="12" height="22" rx="3" fill="var(--sci)"/><rect x="26" y="22" width="12" height="34" rx="3" fill="var(--sci)"/><rect x="44" y="8" width="12" height="48" rx="3" fill="var(--gold)"/></svg>
+      <h3>Datos actuales</h3><p>¿Cuánta IA hay ya en la ciencia?</p></div>
+    <div class="rc in" style="--d:3"><span class="rn">02</span>
+      <svg viewBox="0 0 64 64" fill="none" stroke="var(--sci)" stroke-width="3"><line x1="32" y1="32" x2="32" y2="10"/><line x1="32" y1="32" x2="12" y2="44"/><line x1="32" y1="32" x2="52" y2="44"/><line x1="32" y1="10" x2="12" y2="44"/><line x1="12" y1="44" x2="52" y2="44"/><line x1="52" y1="44" x2="32" y2="10"/><circle cx="32" cy="32" r="7" fill="var(--gold)" stroke="none"/><circle cx="32" cy="10" r="5" fill="var(--sci)" stroke="none"/><circle cx="12" cy="44" r="5" fill="var(--sci)" stroke="none"/><circle cx="52" cy="44" r="5" fill="var(--sci)" stroke="none"/></svg>
+      <h3>Conceptualización de la IA</h3><p>Qué es, cómo funciona y qué es un agente</p></div>
+    <div class="rc in" style="--d:4"><span class="rn">03</span>
+      <svg viewBox="0 0 64 64" fill="none" stroke="var(--sci)" stroke-width="4" stroke-linecap="round"><path d="M50 22 A20 20 0 1 0 52 38"/><path d="M50 8 L50 22 L36 22"/><circle cx="32" cy="32" r="5" fill="var(--gold)" stroke="none"/></svg>
+      <h3>Desafíos prácticos</h3><p>Formular · Buscar · Analizar · Escribir</p></div>
+  </div>
+</section>
+
+<!-- C0 CONTEXTO: DIVISOR -->
+<section class="slide">
+  <div class="divider">
+    <div class="bignum" data-n="%">%</div>
+    <div>
+      <div class="kicker in">Parte 1 · Datos actuales</div>
+      <h2 class="term md in" style="--d:1">¿Cuánta IA hay ya en la ciencia?</h2>
+      <p class="sub in" style="--d:2">Seis datos para ubicarnos. Cada cifra lleva su fuente al pie.</p>
+    </div>
+    <svg class="cyc grow" style="--d:3;width:420px;height:420px" viewBox="-40 -40 680 680" data-cycle="0"></svg>
+  </div>
+</section>
+
+<!-- C1 ADOPCIÓN -->
+<section class="slide" data-init="data">
+  <div class="kicker in">Adopción</div>
+  <h2 class="dhead in" style="--d:1">En un año, el uso de IA entre investigadores pasó del <em>57&nbsp;% al 84&nbsp;%</em></h2>
+  <p class="apunte in" style="--d:2">Porcentaje que declara usar herramientas de IA, en dos oleadas de la misma encuesta internacional. Es un dato autodeclarado (n entre 2.118 y 2.430 según la pregunta).</p>
+  <div class="lienzo in" style="--d:3" data-g="uso"></div>
+  <footer class="fuente" data-f="wiley"></footer>
+</section>
+
+<!-- C2 BENEFICIOS -->
+<section class="slide" data-init="data">
+  <div class="dsplit">
+    <div>
+      <div class="kicker in">Lo que promete</div>
+      <h2 class="dhead in" style="--d:1">El <em>85&nbsp;%</em> de quienes la usan dice haber ganado eficiencia</h2>
+      <p class="apunte in" style="--d:2">Investigadores usuarios de IA que declaran cada beneficio, 2025.</p>
+      <div class="nota in" style="--d:3">Son percepciones, no productividad medida. La otra mitad de la pregunta es la de hoy: <b>¿sin perder calidad?</b></div>
+    </div>
+    <div class="lienzo in" style="--d:2" data-g="beneficios"></div>
+  </div>
+  <footer class="fuente" data-f="wiley"></footer>
+</section>
+
+<!-- C3 HUELLA EN LOS TEXTOS -->
+<section class="slide" data-init="data">
+  <div class="kicker in">La huella en los textos</div>
+  <h2 class="dhead in" style="--d:1">Casi nueve de cada diez artículos biomédicos ya muestran huella de un LLM</h2>
+  <div class="cifra in" style="--d:2">
+    <span class="cifra-n" data-cifra="89" data-suf=" %">89 %</span>
+    <p class="cifra-l">de los artículos de acceso abierto de PubMed Central publicados a finales de 2025 tienen el exceso de vocabulario típico de un texto asistido por un modelo de lenguaje.</p>
+  </div>
+  <p class="apunte in" style="--d:3">Preprint aún sin revisión por pares, sobre 1.194.287 artículos (2017–2025). En 2024, el mismo grupo había medido una cota mínima del 13,5&nbsp;% de los resúmenes, publicada en <i>Science Advances</i>.</p>
+  <footer class="fuente" data-f="holzwarth kobak"></footer>
+</section>
+
+<!-- C4 AMÉRICA LATINA -->
+<section class="slide" data-init="data">
+  <div class="kicker in">Nuestra región</div>
+  <h2 class="dhead in" style="--d:1">En América Latina, el <em>86,5&nbsp;%</em> de las universidades usa IA; con presupuesto para ella, el 8&nbsp;%</h2>
+  <p class="apunte in" style="--d:2">Encuesta a 200 instituciones de educación superior de 19 países, agosto a octubre de 2025. Colombia es el país más representado (40 instituciones). El 57&nbsp;% ya la usa para investigar.</p>
+  <div class="lienzo in" style="--d:3" data-g="latam"></div>
+  <footer class="fuente" data-f="iesalc"></footer>
+</section>
+
+<!-- K1 CONCEPTUALIZACIÓN: APERTURA -->
+<section class="slide llm llm-intro" data-init="llmIntro">
+  <div class="llm-box">
+    <canvas class="net" id="llNet"></canvas>
+    <div class="lfade"></div>
+    <div class="intro">
+      <div class="eyebrow">Parte 2 · Conceptualización</div>
+      <h1>
+        <span class="line" style="--i:0"><span class="num">01</span><span class="txt">¿Qué es la IA?</span></span>
+        <span class="line" style="--i:1"><span class="num">02</span><span class="txt">¿Cómo funciona?</span></span>
+        <span class="line hl" style="--i:2"><span class="num">03</span><span class="txt">Agentes de IA</span></span>
+      </h1>
+      <div class="rule"></div>
+    </div>
+  </div>
+</section>
+
+<!-- K2 EL ESPACIO DE VECTORES -->
+<section class="slide llm llm-space" data-init="llmSpace">
+  <div class="llm-box">
+    <canvas id="llCv"></canvas>
+    <div class="top">
+      <div class="eyebrow">Dentro de un modelo de lenguaje</div>
+      <div class="qrow" id="llQrow"></div>
+    </div>
+    <div class="hud" id="llHud">
+      <div class="lbl">Palabras más cercanas</div>
+      <ol id="llNear"></ol>
+    </div>
+    <div class="caps">
+      <p class="cp" data-s="0">Cada palabra es un <em>punto</em> en el espacio</p>
+      <p class="cp" data-s="1">Lo que se parece, queda <em>cerca</em></p>
+      <p class="cp" data-s="2">Las relaciones son <em>direcciones</em></p>
+      <p class="cp" data-s="3">Entra la pregunta</p>
+      <p class="cp" data-s="4">Atiende a <em>«capital»</em></p>
+      <p class="cp" data-s="5">Atiende a <em>«Colombia»</em></p>
+      <p class="cp" data-s="6">Colombia + (país → capital) ≈ <b>Bogotá</b></p>
+    </div>
+  </div>
+</section>
+
+<!-- K3 EN RESUMEN -->
+<section class="slide llm llm-res" data-init="llmResumen">
+  <div class="llm-box">
+    <div class="eyebrow">En resumen</div>
+    <h2>No consulta una tabla: se mueve por un espacio de significado.</h2>
+    <div class="llchain" id="llChain">
+      <div class="link" style="--k:0"><div class="n">1</div><div class="t">Tokeniza</div><div class="d">Corta el texto en fragmentos numerados.</div></div>
+      <div class="link" style="--k:1"><div class="n">2</div><div class="t">Ubica</div><div class="d">Cada token pasa a ser un punto del espacio.</div></div>
+      <div class="link" style="--k:2"><div class="n">3</div><div class="t">Atiende</div><div class="d">Mezcla el contexto que importa.</div></div>
+      <div class="link" style="--k:3"><div class="n">4</div><div class="t">Transforma</div><div class="d">Desplaza el vector capa a capa.</div></div>
+      <div class="link" style="--k:4"><div class="n">5</div><div class="t">Predice</div><div class="d">Elige el token más probable.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- K4 IA VS. AGENTE DE IA -->
+<section class="slide llm llm-vs" data-init="llmVersus">
+  <div class="llm-box">
+    <div class="eyebrow vs-eye">03 · Agentes de IA</div>
+    <div class="vcol" style="left:88px">
+      <h2>IA</h2>
+      <p class="vsub rv" data-s="1">Responde una vez</p>
+      <svg class="lf" id="vsL" viewBox="0 0 512 320"></svg>
+    </div>
+    <div class="vline"></div><div class="vsb">vs</div>
+    <div class="vcol" style="left:680px">
+      <h2>Agente de IA</h2>
+      <p class="vsub rv" data-s="2">Persigue un objetivo</p>
+      <svg class="rs" id="vsR" viewBox="0 0 512 320"></svg>
+    </div>
+  </div>
+</section>
+
+<!-- 3 REGLA DEL JUEGO -->
+<section class="slide" data-init="loop">
+  <div class="split">
+    <div>
+      <div class="kicker in">Parte 3 · La regla del juego</div>
+      <h2 class="term md in" style="--d:1">La IA acelera, tú auditas</h2>
+      <div class="detail in" style="--d:3;margin-top:44px" id="loopD"><h4>Cuatro pasos por vuelta</h4><div class="note">La calidad no se delega: se verifica en cada vuelta.</div></div>
+    </div>
+    <svg class="loop grow" style="--d:2" viewBox="0 0 680 640" data-picker="#loopD">
+      <defs><marker id="arL" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="var(--sci)"/></marker></defs>
+      <path class="arc flowline" d="M430 110 Q590 130 580 250"/>
+      <path class="arc flowline" d="M580 390 Q590 510 430 530"/>
+      <path class="arc flowline" d="M250 530 Q90 510 100 390"/>
+      <path class="arc flowline" d="M100 250 Q90 130 250 110"/>
+      <circle cx="340" cy="320" r="92" fill="var(--mist)"/>
+      <text x="340" y="320" font-size="34" fill="var(--ink)">Calidad</text>
+      <g class="nd" data-title="1. Tú defines" data-text="Problema, objetivo, datos y criterios. Sin insumos claros, la IA adivina."><rect x="250" y="70" width="180" height="80" rx="40" fill="var(--ink)" stroke="var(--ink)"/><text x="340" y="110" font-size="28" fill="#fff">Tú defines</text></g>
+      <g class="nd" data-title="2. La IA genera" data-text="Borradores, búsquedas, código y formato en minutos."><rect x="490" y="280" width="180" height="80" rx="40" fill="var(--sci)" stroke="var(--sci)"/><text x="580" y="320" font-size="28" fill="#fff">IA genera</text></g>
+      <g class="nd" data-title="3. Tú auditas" data-text="Verificas fuentes, supuestos, coherencia y ética. Aquí se decide la calidad."><rect x="250" y="490" width="180" height="80" rx="40" fill="var(--gold)" stroke="var(--gold)"/><text x="340" y="530" font-size="28" fill="var(--ink)">Tú auditas</text></g>
+      <g class="nd" data-title="4. La IA ajusta" data-text="Corriges con instrucciones precisas y repites hasta cumplir el estándar."><rect x="10" y="280" width="180" height="80" rx="40" fill="var(--sci)" stroke="var(--sci)"/><text x="100" y="320" font-size="28" fill="#fff">IA ajusta</text></g>
+    </svg>
+  </div>
+</section>
+
+<!-- 4 DESAFÍO 1 -->
+<section class="slide">
+  <div class="divider">
+    <div class="bignum" data-n="1">1</div>
+    <div>
+      <div class="kicker in">Desafío 1</div>
+      <h2 class="term md in" style="--d:1">Formular el proyecto</h2>
+      <p class="sub in" style="--d:2">De un problema, un objetivo y unos métodos claros a un anteproyecto formal en minutos.</p>
+    </div>
+    <svg class="cyc grow" style="--d:3;width:420px;height:420px" viewBox="-40 -40 680 680" data-cycle="1"></svg>
+  </div>
+</section>
+
+<!-- 5 SISTEMA DE PROMPTS -->
+<section class="slide" data-init="sys" style="padding-top:84px">
+  <div class="top-row" style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div>
+      <div class="kicker in">Agentes y sistema de prompts</div>
+      <h2 class="term sm in" style="--d:1">Tres insumos, un anteproyecto</h2>
+    </div>
+    <div class="in" style="--d:2;display:flex;gap:12px"><button class="btn blue" id="sysRun">Ejecutar sistema</button><button class="btn ghost" id="sysReset">Reiniciar</button></div>
+  </div>
+  <div class="sys">
+    <div class="in" style="--d:2">
+      <div class="inp"><small>Problema</small><div contenteditable="true">Pérdidas de agua en el riego de arroz en el Meta</div></div>
+      <div class="inp"><small>Objetivo</small><div contenteditable="true">Evaluar la huella hídrica de dos sistemas de riego</div></div>
+      <div class="inp"><small>Métodos</small><div contenteditable="true">Diseño experimental, balance hídrico y ANOVA</div></div>
+    </div>
+    <div class="chain in" style="--d:3" id="chain"><div class="fillline"></div></div>
+    <div class="draft in" style="--d:4" id="draft">
+      <div class="watch" id="watch">00:00</div>
+      <h4>Anteproyecto</h4><div class="meta">Borrador preliminar, versión 0</div>
+      <div class="audit-flag" id="flag">Pendiente: auditoría humana</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5b PROMPT DE EJEMPLO (del taller) -->
+<section class="slide" data-init="promptEj" style="padding-top:84px">
+  <div class="kicker in">Ejemplo práctico · Desafío 1</div>
+  <h2 class="term sm in" style="--d:1">Un prompt para formular tu proyecto</h2>
+  <div class="pe-wrap">
+    <div class="in" style="--d:2">
+      <div class="pe-card">
+        <small>Objetivo general</small>
+        <div class="pe-obj" id="peObj" contenteditable="true" spellcheck="false">Evaluar el efecto del uso de herramientas de IA en la calidad de propuestas de investigación en estudiantes de posgrado.</div>
+        <div class="pe-hint">Escribe aquí el tuyo: el prompt se actualiza solo.</div>
+      </div>
+      <ol class="steps">
+        <li>Escribe tu objetivo general</li>
+        <li>Copia el prompt generado</li>
+        <li>Pégalo en ChatGPT, Claude o Gemini</li>
+        <li>Obtén tu formato completo de proyecto</li>
+      </ol>
+    </div>
+    <div class="pe-box in" style="--d:3">
+      <div class="pe-bar"><span>prompt.txt</span><button class="btn blue" id="peCopy">Copiar prompt</button></div>
+<div class="pe-txt" id="peTxt">Actúa como asesor de investigación. A partir del siguiente OBJETIVO GENERAL, construye un formato COMPLETO de proyecto de investigación que incluya CADA UNO de estos componentes:
+
+<b>1.</b> TÍTULO TENTATIVO (máximo 20 palabras, descriptivo)
+<b>2.</b> PLANTEAMIENTO DEL PROBLEMA (contexto, vacío, pregunta)
+<b>3.</b> JUSTIFICACIÓN (teórica, práctica, metodológica)
+<b>4.</b> MARCO TEÓRICO (conceptos clave y autores de referencia)
+<b>5.</b> OBJETIVOS (general + 3 específicos con verbo medible)
+<b>6.</b> HIPÓTESIS o SUPUESTOS (según enfoque)
+<b>7.</b> METODOLOGÍA (enfoque, diseño, población, técnicas, análisis)
+<b>8.</b> CRONOGRAMA (actividades por mes)
+<b>9.</b> REFERENCIAS (APA 7, mínimo 15 fuentes)
+
+OBJETIVO GENERAL:
+"<span class="ph" id="pePh">Evaluar el efecto del uso de herramientas de IA en la calidad de propuestas de investigación en estudiantes de posgrado.</span>"
+
+Devuelve el formato completo con cada sección desarrollada y numerada. No inventes datos ni citas ficticias.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 AUDITORÍA -->
+<section class="slide" data-init="audit">
+  <div class="split" style="grid-template-columns:.85fr 1.15fr">
+    <div>
+      <div class="kicker in">Sin perder calidad</div>
+      <h2 class="term md in" style="--d:1">El borrador se audita</h2>
+      <svg class="ring-prog grow" style="--d:3" viewBox="0 0 260 260"><circle class="bg" cx="130" cy="130" r="110"/><circle class="fg" id="ringFg" cx="130" cy="130" r="110"/><text x="130" y="130" id="ringTx">0 %</text></svg>
+    </div>
+    <div class="checks in" style="--d:2" id="checks">
+      <div class="ck"><i></i>Coherencia problema, objetivo y método</div>
+      <div class="ck"><i></i>Cada referencia verificada en su fuente</div>
+      <div class="ck"><i></i>Viabilidad de tiempo y presupuesto</div>
+      <div class="ck"><i></i>Aporte original frente al estado del arte</div>
+      <div class="ck"><i></i>Consideraciones éticas y de datos</div>
+      <div class="ck"><i></i>Voz y criterio del investigador</div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 DESAFÍO 2 -->
+<section class="slide">
+  <div class="divider">
+    <div class="bignum" data-n="2">2</div>
+    <div>
+      <div class="kicker in">Desafío 2</div>
+      <h2 class="term md in" style="--d:1">Encontrar la literatura correcta</h2>
+      <p class="sub in" style="--d:2">Un flujo científico y automatizado: de miles de registros a un corpus preciso.</p>
+    </div>
+    <svg class="cyc grow" style="--d:3;width:420px;height:420px" viewBox="-40 -40 680 680" data-cycle="2"></svg>
+  </div>
+</section>
+
+<!-- 8 FLUJO BIBLIOMÉTRICO -->
+<section class="slide" data-init="pipe">
+  <div class="kicker in">Flujo automatizado</div>
+  <h2 class="term sm in" style="--d:1">Del ruido al corpus</h2>
+  <svg class="pipe in" style="--d:2" viewBox="0 0 1380 400" id="pipeSvg" data-picker="#pipeD">
+    <g stroke="var(--line)" stroke-width="3" fill="none">
+      <path d="M210 200 L280 110"/><path d="M210 200 L280 300"/>
+      <path class="flowline" d="M500 110 L590 200" stroke="var(--sci)"/><path class="flowline" d="M500 300 L590 200" stroke="var(--sci)"/>
+      <path class="flowline" d="M850 200 L920 200" stroke="var(--sci)"/><path class="flowline" d="M1160 200 L1225 200" stroke="var(--sci)"/>
+    </g>
+    <g id="pp"></g>
+    <g class="st" data-title="Ecuación de búsqueda" data-text="Palabras clave y operadores booleanos. Un agente de IA ayuda a proponer sinónimos y a refinarla."><rect x="20" y="160" width="190" height="80" rx="16"/><text x="115" y="190" font-size="22">Ecuación</text><text class="sm" x="115" y="216">de búsqueda</text></g>
+    <g class="st" data-title="Web of Science" data-text="Se exportan los registros completos, con referencias citadas."><rect x="280" y="70" width="220" height="80" rx="16"/><text x="390" y="110" font-size="22">Web of Science</text></g>
+    <g class="st" data-title="Scopus" data-text="Se exportan los mismos campos para combinar las dos bases."><rect x="280" y="260" width="220" height="80" rx="16"/><text x="390" y="300" font-size="22">Scopus</text></g>
+    <g class="st own" data-title="BibliometriaFlow" data-text="Algoritmo propio: consolida Web of Science y Scopus, detecta y elimina duplicados, y entrega un archivo listo para otras herramientas."><rect x="590" y="150" width="260" height="100" rx="18"/><text x="720" y="188" font-size="22">BibliometriaFlow</text><text class="sm" x="720" y="218">consolida y depura</text></g>
+    <g class="st" data-title="Tree of Science" data-text="Herramienta creada en la Universidad Nacional de Colombia. Usa la red de citaciones para seleccionar la literatura relevante."><rect x="920" y="150" width="240" height="100" rx="18"/><text x="1040" y="188" font-size="22">Tree of Science</text><text class="sm" x="1040" y="218">red de citaciones</text></g>
+    <g class="st" data-title="Corpus" data-text="Conjunto final trazable y reproducible, listo para lectura profunda."><rect x="1225" y="150" width="150" height="100" rx="50"/><text x="1300" y="200" font-size="23">Corpus</text></g>
+  </svg>
+  <div class="detail in" style="--d:3;max-width:1100px" id="pipeD"><h4>Seis etapas</h4><div class="note">Los puntos rojos son duplicados; los grises, registros poco conectados.</div></div>
+</section>
+
+<!-- 9 TREE OF SCIENCE -->
+<section class="slide" data-init="tree">
+  <div class="split" style="grid-template-columns:.9fr 1.1fr">
+    <div>
+      <div class="kicker in">Tree of Science</div>
+      <h2 class="term md in" style="--d:1">Leer la ciencia como un árbol</h2>
+      <div class="detail in" style="--d:3;margin-top:40px" id="treeD"><h4>Tres niveles de literatura</h4><div class="note">Cada parte alimenta una sección distinta de tu documento.</div></div>
+    </div>
+    <svg class="tree" viewBox="0 0 640 700" data-picker="#treeD">
+      <line x1="40" y1="470" x2="600" y2="470" stroke="var(--line)" stroke-width="3"/>
+      <g class="grp leaves" data-title="Hojas: recientes" data-text="Perspectivas y publicaciones de los últimos años. Sirven para identificar vacíos y construir la discusión.">
+        <circle style="animation-delay:2.1s,2.8s" cx="320" cy="150" r="70" fill="#1F9D6B"/>
+        <circle style="animation-delay:2.2s,3.1s" cx="220" cy="210" r="62" fill="#2FB57E"/>
+        <circle style="animation-delay:2.3s,3.4s" cx="420" cy="210" r="62" fill="#2FB57E"/>
+        <circle style="animation-delay:2.4s,2.6s" cx="260" cy="110" r="46" fill="#48C790"/>
+        <circle style="animation-delay:2.5s,3s" cx="390" cy="100" r="46" fill="#48C790"/>
+        <circle style="animation-delay:2.6s,3.2s" cx="320" cy="250" r="52" fill="#1F9D6B"/>
+        <text class="lab" x="510" y="90">Hojas</text>
+      </g>
+      <g class="grp trunk" data-title="Tronco: estructurales" data-text="Obras que consolidan el campo y conectan clásicos con recientes. Base del estado del arte.">
+        <path d="M296 470 L300 270 L340 270 L344 470 Z"/>
+        <text class="lab" x="380" y="380">Tronco</text>
+      </g>
+      <g class="grp roots" data-title="Raíz: clásicos" data-text="Trabajos fundacionales, los más citados. Sustentan el marco teórico.">
+        <path d="M320 470 Q300 540 220 600"/><path d="M320 470 Q330 560 320 650"/><path d="M320 470 Q360 540 440 590"/><path d="M320 470 Q260 510 150 520"/><path d="M320 470 Q390 505 500 515"/>
+        <text class="lab" x="470" y="640">Raíz</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- 10 DESAFÍO 3 -->
+<section class="slide">
+  <div class="divider">
+    <div class="bignum" data-n="3">3</div>
+    <div>
+      <div class="kicker in">Desafío 3</div>
+      <h2 class="term md in" style="--d:1">Analizar los datos</h2>
+      <p class="sub in" style="--d:2">Pides en lenguaje natural; un agente lo convierte en Python, gráficas, pruebas y modelos.</p>
+    </div>
+    <svg class="cyc grow" style="--d:3;width:420px;height:420px" viewBox="-40 -40 680 680" data-cycle="3"></svg>
+  </div>
+</section>
+
+<!-- 11 LENGUAJE NATURAL A PYTHON -->
+<section class="slide" data-init="nl" style="padding-top:84px">
+  <div class="kicker in">Google Colab con Gemini o un agente en tu computador</div>
+  <h2 class="term sm in" style="--d:1">Pídelo en español, recibe Python</h2>
+  <div class="tabs in" style="--d:2" id="nlTabs">
+    <button class="tab" data-k="0">Descriptivo</button><button class="tab" data-k="1">Inferencial</button><button class="tab" data-k="2">Red neuronal</button>
+  </div>
+  <div class="nl in" style="--d:3">
+    <div><div class="bubble" id="nlPrompt"></div><div class="code" id="nlCode"></div></div>
+    <div class="outcard"><header><b>Resultado</b><span class="badge">datos simulados</span></header><svg id="nlOut" viewBox="0 0 520 380"></svg></div>
+  </div>
+</section>
+
+<!-- 12 ESCALERA -->
+<section class="slide" data-init="ladder">
+  <div class="split" style="grid-template-columns:.8fr 1.2fr">
+    <div>
+      <div class="kicker in">Hasta dónde llega</div>
+      <h2 class="term md in" style="--d:1">De la tabla a la red neuronal</h2>
+      <div class="detail in" style="--d:3;margin-top:40px;font-size:23px" id="ladD"><h4>Cuatro niveles de análisis</h4><div class="note">Cada nivel trae su instrucción y lo que debes auditar.</div></div>
+    </div>
+    <svg class="ladder" viewBox="0 0 760 600" id="ladSvg">
+      <g class="step" style="animation-delay:.3s" data-k="0"><rect x="20" y="450" width="170" height="130" rx="12" fill="var(--mist)"/><text x="105" y="515">Descriptivo</text></g>
+      <g class="step" style="animation-delay:.45s" data-k="1"><rect x="205" y="330" width="170" height="250" rx="12" fill="var(--mist)"/><text x="290" y="455">Inferencial</text></g>
+      <g class="step" style="animation-delay:.6s" data-k="2"><rect x="390" y="210" width="170" height="370" rx="12" fill="var(--mist)"/><text x="475" y="380">Machine</text><text x="475" y="412">learning</text></g>
+      <g class="step" style="animation-delay:.75s" data-k="3"><rect x="575" y="90" width="170" height="490" rx="12" fill="var(--mist)"/><text x="660" y="320">Red</text><text x="660" y="352">neuronal</text></g>
+      <g id="climber" style="transform:translate(105px,420px)"><circle r="20" fill="var(--gold)"/><circle r="7" cy="-2" fill="#fff"/></g>
+    </svg>
+  </div>
+</section>
+
+<!-- 13 DESAFÍO 4 -->
+<section class="slide">
+  <div class="divider">
+    <div class="bignum" data-n="4">4</div>
+    <div>
+      <div class="kicker in">Desafío 4</div>
+      <h2 class="term md in" style="--d:1">Escribir el artículo</h2>
+      <p class="sub in" style="--d:2">Tú aportas la esencia; la IA ayuda con evidencia, estructura y formato de revista.</p>
+    </div>
+    <svg class="cyc grow" style="--d:3;width:420px;height:420px" viewBox="-40 -40 680 680" data-cycle="4"></svg>
+  </div>
+</section>
+
+<!-- 14 POLÍTICAS -->
+<section class="slide" data-init="pcards">
+  <div style="display:grid;grid-template-columns:400px 1fr;gap:44px;height:100%;align-items:center">
+    <div>
+      <div class="kicker in">Políticas editoriales</div>
+      <h2 class="term md in" style="--d:1;font-size:74px">Úsala y decláralo</h2>
+      <p class="sub in" style="--d:2;font-size:24px">La autoría y la responsabilidad son humanas. Cada revista publica su política: revísala antes de enviar.</p>
+    </div>
+    <div>
+      <div class="pcards" id="pcards"></div>
+      <p class="note in" style="--d:4;margin-top:14px">Referencia: políticas de Elsevier y COPE.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 15 SCISPACE -->
+<section class="slide" data-init="sci">
+  <div class="split" style="grid-template-columns:.75fr 1.25fr">
+    <div>
+      <div class="kicker in">SciSpace</div>
+      <h2 class="term md in" style="--d:1">De tu idea a la evidencia</h2>
+      <p class="sub in" style="--d:2;font-size:25px">Escribes la idea y la herramienta sugiere artículos que la sustentan o la contrastan.</p>
+      <p class="note in" style="--d:3;margin-top:24px;font-size:21px;color:var(--ink)">Lee cada fuente antes de citarla.</p>
+    </div>
+    <div class="in" style="--d:2">
+      <div class="tabs" id="sciTabs"><button class="tab on" data-k="0">Introducción</button><button class="tab" data-k="1">Discusión</button></div>
+      <div class="idea" id="sciIdea"><span class="scan" id="sciScan"></span><span id="sciText"></span></div>
+      <div class="cites" id="sciCites"></div>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:10px"><button class="btn blue" id="sciGo">Sugerir referencias</button><span class="note">Ejemplo ilustrativo</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 16 PRISM -->
+<section class="slide" data-init="prism" style="padding-top:84px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div>
+      <div class="kicker in">Prism de OpenAI, editor LaTeX con IA integrada</div>
+      <h2 class="term sm in" style="--d:1">Tú escribes la esencia, LaTeX da la forma</h2>
+    </div>
+    <div class="in" style="--d:2;display:flex;gap:12px"><button class="btn blue" id="prRun">Escribir y compilar</button><button class="btn ghost" id="prReset">Reiniciar</button></div>
+  </div>
+  <div class="prism in" style="--d:3">
+    <div class="tex" id="tex"></div>
+    <div class="page" id="page">
+      <div class="pp pt" data-i="1">Huella hídrica del arroz bajo riego intermitente</div>
+      <div class="pp pa" data-i="1">Autor, Filiación</div>
+      <div class="pp abs" data-i="2"><b>Resumen.</b> Se compara el consumo de agua de dos sistemas de riego...</div>
+      <div class="pp" data-i="3"><h5>1. Introducción</h5><div class="ln" style="width:100%"></div><div class="ln" style="width:92%"></div><div class="ln" style="width:70%"></div></div>
+      <div class="pp" data-i="4"><h5>2. Métodos</h5><div class="ln" style="width:96%"></div></div>
+      <div class="pp eq" data-i="5">HH<sub>verde</sub> = <span class="frac"><span>10 &#931; ET</span><span>Y</span></span> &nbsp;&nbsp;(1)</div>
+      <div class="pp fig" data-i="6"><i style="height:40%"></i><i style="height:75%"></i><i style="height:55%"></i><i style="height:90%"></i></div>
+      <div class="pp refs" data-i="7"><b>Referencias</b><br>[1] ... &nbsp; [2] ... &nbsp; [3] ...</div>
+    </div>
+  </div>
+</section>
+
+<!-- D5 DATO: NADIE ENSEÑA -->
+<section class="slide" data-init="data">
+  <div class="kicker in">Por qué hablar de esto</div>
+  <h2 class="dhead in" style="--d:1">Uno de cada tres investigadores aprendió a usar la IA <em>por su cuenta</em></h2>
+  <div class="cifra in" style="--d:2">
+    <span class="cifra-n" data-cifra="35" data-suf=" %">35 %</span>
+    <p class="cifra-l">aprendió por ensayo y error, sin formación. Y un 18&nbsp;% no hace nada para asegurar buenas prácticas.</p>
+  </div>
+  <p class="apunte in" style="--d:3">Encuesta a 1.645 investigadores activos, mayo y junio de 2025.</p>
+  <footer class="fuente" data-f="frontiers"></footer>
+</section>
+
+<!-- 17 CONCLUSIONES -->
+<section class="slide" style="padding-top:84px">
+  <div class="kicker in">Conclusiones</div>
+  <h2 class="term sm in" style="--d:1">Lo que cambia y lo que no</h2>
+  <div class="concl">
+    <div class="cc" data-step="1"><svg viewBox="0 0 70 70"><rect x="14" y="8" width="42" height="54" rx="6" fill="none" stroke="var(--sci)" stroke-width="5"/><line x1="24" y1="26" x2="46" y2="26" stroke="var(--gold)" stroke-width="5" stroke-linecap="round"/><line x1="24" y1="40" x2="40" y2="40" stroke="var(--gold)" stroke-width="5" stroke-linecap="round"/></svg><div><b>Formular</b>La calidad del anteproyecto depende de la claridad del problema, el objetivo y los métodos que tú defines.</div></div>
+    <div class="cc" data-step="2"><svg viewBox="0 0 70 70"><circle cx="30" cy="30" r="18" fill="none" stroke="var(--sci)" stroke-width="5"/><line x1="44" y1="44" x2="60" y2="60" stroke="var(--gold)" stroke-width="6" stroke-linecap="round"/></svg><div><b>Buscar</b>Un flujo reproducible reemplaza la búsqueda intuitiva por una selección trazable y defendible.</div></div>
+    <div class="cc" data-step="3"><svg viewBox="0 0 70 70"><rect x="10" y="38" width="12" height="24" rx="3" fill="var(--sci)"/><rect x="29" y="24" width="12" height="38" rx="3" fill="var(--sci)"/><rect x="48" y="10" width="12" height="52" rx="3" fill="var(--gold)"/></svg><div><b>Analizar</b>El lenguaje natural baja la barrera técnica; el criterio estadístico sigue siendo del investigador.</div></div>
+    <div class="cc" data-step="4"><svg viewBox="0 0 70 70"><path d="M14 56 L20 40 L48 12 L58 22 L30 50 Z" fill="none" stroke="var(--sci)" stroke-width="5" stroke-linejoin="round"/><line x1="12" y1="62" x2="58" y2="62" stroke="var(--gold)" stroke-width="5" stroke-linecap="round"/></svg><div><b>Escribir</b>La IA sugiere evidencia y organiza el formato; las ideas, la interpretación y la declaración de uso son del autor.</div></div>
+  </div>
+  <div class="transv" data-step="5">La IA no reemplaza el método científico: acelera cada etapa cuando hay auditoría humana.</div>
+</section>
+
+<!-- 18 CIERRE -->
+<section class="slide" data-init="cover2">
+  <div class="split" style="grid-template-columns:1.1fr .9fr">
+    <div>
+      <h2 class="big-quote in" style="font-size:82px">La IA acelera. El rigor es tuyo.</h2>
+      <p class="sub in" style="--d:2">¿Preguntas?</p>
+      <div class="contact in" style="--d:3">
+        <b>Oscar Iván Vargas Pineda</b>
+        <span>Trabajo Científico, @TCientifico</span>
+        <span>oscarvargas@trabajocientifico.org</span>
+      </div>
+    </div>
+    <svg class="cyc grow" style="--d:2;width:560px;height:560px" viewBox="-40 -40 680 680" data-cycle="0"></svg>
+  </div>
+</section>
+
+<!-- 19 FUENTES -->
+<section class="slide">
+  <div class="center">
+    <h2 class="term sm in">Fuentes</h2>
+    <div class="srcgrid">
+      <div>
+        <h3 class="in">Herramientas y políticas</h3>
+        <ul class="src">
+          <li class="in" style="--d:1">OpenAI (2026). Introducing Prism.</li>
+          <li class="in" style="--d:2">Google (2025). Data Science Agent in Colab: the future of data analysis with Gemini.</li>
+          <li class="in" style="--d:3">Valencia-Hernández, D. S., Robledo, S. et al. (2020). SAP Algorithm for Citation Analysis: An improvement to Tree of Science. Ingeniería e Investigación, 40(1).</li>
+          <li class="in" style="--d:4">Zuluaga, M., Robledo, S. et al. (2022). Tree of Science: A web-based tool for scientific literature recommendation. Issues in Science and Technology Librarianship, 100.</li>
+          <li class="in" style="--d:5">Elsevier. Generative AI policies for journals.</li>
+          <li class="in" style="--d:6">COPE (2023). Authorship and AI tools.</li>
+          <li class="in" style="--d:7">SciSpace. AI Writer y sugerencia de citas.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="in">Datos de contexto</h3>
+        <ul class="src">
+          <li class="in" style="--d:1">Stanford HAI (2026). AI Index Report 2026, capítulo 5: Science.</li>
+          <li class="in" style="--d:2">Wiley (2025). ExplanAItions: hallazgos clave, oleada 2025.</li>
+          <li class="in" style="--d:3">Kobak, D. et al. (2025). Delving into LLM-assisted writing in biomedical publications through excess vocabulary. Science Advances.</li>
+          <li class="in" style="--d:4">Holzwarth, González-Márquez y Kobak (2026). Most biomedical publications show signs of LLM-assisted writing. Preprint, arXiv.</li>
+          <li class="in" style="--d:5">UNESCO IESALC (2025). Adopción y gobernanza de la IA en la educación superior de América Latina y el Caribe. Revista ESS, 37(2).</li>
+          <li class="in" style="--d:6">Frontiers (2025). Unlocking AI's untapped potential: responsible innovation in research and publishing.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+  <div id="wipe"><i></i><i></i><i></i><i></i><i></i></div>
+</div></div>
+<script>
+window.SLIDE_INIT = {};
+
+/* ---------- ciclo de investigación ---------- */
+(function(){
+  const nodes=[['Formular',300,40],['Buscar',560,300],['Analizar',300,560],['Escribir',40,300]];
+  const icons=[
+    '<rect class="ic" x="-16" y="-20" width="32" height="40" rx="4"/><line class="ic" x1="-8" y1="-6" x2="8" y2="-6"/><line class="ic" x1="-8" y1="6" x2="4" y2="6"/>',
+    '<circle class="ic" cx="-4" cy="-4" r="13"/><line class="ic" x1="6" y1="6" x2="18" y2="18"/>',
+    '<line class="ic" x1="-14" y1="16" x2="-14" y2="2"/><line class="ic" x1="0" y1="16" x2="0" y2="-10"/><line class="ic" x1="14" y1="16" x2="14" y2="-18"/>',
+    '<path class="ic" d="M-16 18 L-12 6 L8 -14 L16 -6 L-4 14 Z"/>'];
+  document.querySelectorAll('[data-cycle]').forEach(svg=>{
+    const act=+svg.dataset.cycle;
+    let h=`<circle class="ring" cx="300" cy="300" r="260"/><g class="orb"><circle cx="300" cy="40" r="10" fill="var(--gold)" transform="rotate(20 300 300)"/></g>`;
+    nodes.forEach((n,i)=>{
+      const lx=n[1], ly = i===0? n[2]-78 : i===2? n[2]+100 : n[2]+92;
+      h+=`<g class="nd${act===i+1?' act':''}" data-i="${i}"><circle cx="${n[1]}" cy="${n[2]}" r="52"/><g transform="translate(${n[1]} ${n[2]})">${icons[i]}</g><text x="${lx}" y="${ly}">${n[0]}</text></g>`;
+    });
+    if(act>0) h+=`<text class="core-n" x="300" y="300">${act}</text>`;
+    else h+=`<text x="300" y="300" text-anchor="middle" dominant-baseline="central" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="46" fill="var(--ink)">Investigar</text>`;
+    svg.innerHTML=h;
+  });
+})();
+const cycleRun=(s)=>{ const svg=s.querySelector('[data-cycle="0"]'); const nds=[...svg.querySelectorAll('.nd')]; let k=0;
+  setInterval(()=>{ if(!s.classList.contains('active')) return; nds.forEach(n=>n.classList.remove('act')); nds[k%4].classList.add('act'); k++; },1500); };
+SLIDE_INIT.cover=(s,first)=>{ if(first) cycleRun(s); };
+SLIDE_INIT.cover2=(s,first)=>{ if(first) cycleRun(s); };
+
+/* ---------- votación ---------- */
+SLIDE_INIT.vote=(s,first)=>{
+  if(!first) return;
+  const v=[0,0,0,0], btns=[...document.querySelectorAll('#vote button')];
+  const draw=()=>{ const m=Math.max(1,...v), top=Math.max(...v); btns.forEach((b,i)=>{ b.querySelector('.bar span').style.width=(v[i]/m*100)+'%'; b.querySelector('.n').textContent=v[i]; b.classList.toggle('top', top>0 && v[i]===top); }); };
+  btns.forEach((b,i)=>{ b.onclick=()=>{v[i]++;draw();}; b.oncontextmenu=e=>{e.preventDefault();v[i]=Math.max(0,v[i]-1);draw();}; });
+};
+
+/* ---------- ayudas para pasos con flecha ---------- */
+function tap(el){ el.dispatchEvent(new MouseEvent('click',{bubbles:true})); }
+/* foco: resalta el elemento que se explica y atenúa los demás */
+function spot(items, active){
+  items.forEach(i=>{
+    i.classList.toggle('spot-on', i===active);
+    i.classList.toggle('spot-dim', !!active && i!==active);
+  });
+}
+function unspot(items){ items.forEach(i=>i.classList.remove('spot-on','spot-dim')); }
+/* pastilla «2 / 4» delante del título del panel de detalle */
+function dstep(n, total){ return `<em class="dstep">${n} / ${total}</em>`; }
+function pickSteps(s, items, D, extraReset){
+  const def=D.innerHTML;
+  /* la pastilla «n / total» sigue el orden de exposición, no el del DOM */
+  items.forEach((it,i)=>{ it.dataset.pickOrder=i+1; it.dataset.pickTotal=items.length; });
+  s._steps=items.map(it=>()=>tap(it));
+  s._reset=()=>{ unspot(items); items.forEach(i=>i.classList.remove('on')); D.innerHTML=def; if(extraReset) extraReset(); };
+}
+SLIDE_INIT.loop=(s,first)=>{ if(!first) return; pickSteps(s,[...s.querySelectorAll('.loop .nd')],document.getElementById('loopD')); };
+SLIDE_INIT.tree=(s,first)=>{ if(!first) return; pickSteps(s,[s.querySelector('.tree .roots'),s.querySelector('.tree .trunk'),s.querySelector('.tree .leaves')],document.getElementById('treeD')); };
+
+/* ---------- sistema de prompts ---------- */
+SLIDE_INIT.sys=(s,first)=>{
+  if(!first) return;
+  const secs=[
+    ['Planteamiento del problema','b'],['Justificación','b'],['Objetivos','b'],['Marco teórico','b'],
+    ['Metodología','b'],['Cronograma y presupuesto','b'],['Resultados esperados','b'],
+    ['Impactos','c'],['Referencias','r']];
+  const chain=document.getElementById('chain'), draft=document.getElementById('draft'), watch=document.getElementById('watch'), flag=document.getElementById('flag');
+  const fl=chain.querySelector('.fillline');
+  const grid=document.createElement('div'); grid.className='dsgrid'; flag.before(grid);
+  secs.forEach((t,i)=>{
+    chain.insertAdjacentHTML('beforeend',`<div class="pn"><i>P${i+1}</i>${t[0]}</div>`);
+    let body='<i></i><i></i>';
+    if(t[1]==='c') body='<div class="chips"><span>Científico</span><span>Ambiental</span><span>Social</span><span>Económico</span></div>';
+    if(t[1]==='r') body='<div class="rl"><em>[1]</em><i></i></div><div class="rl"><em>[2]</em><i></i></div><div class="rl"><em>[3]</em><i></i></div>';
+    grid.insertAdjacentHTML('beforeend',`<div class="ds${t[1]==='r'?' wide':''}"><b>${t[0]}</b>${body}</div>`);
+  });
+  const pns=[...chain.querySelectorAll('.pn')], dss=[...draft.querySelectorAll('.ds')], inps=[...s.querySelectorAll('.inp')];
+  let timers=[], iv=null;
+  const clearCur=()=>{ pns.forEach(p=>p.classList.remove('cur')); dss.forEach(d=>d.classList.remove('cur')); flag.classList.remove('cur'); };
+  const reset=()=>{ timers.forEach(clearTimeout); timers=[]; clearInterval(iv); clearCur(); pns.forEach(p=>p.classList.remove('on')); dss.forEach(d=>d.classList.remove('on')); inps.forEach(x=>x.classList.remove('feed')); fl.style.height='0'; watch.textContent='00:00'; flag.classList.remove('on'); };
+  const feed=()=>inps.forEach((x,i)=>timers.push(setTimeout(()=>x.classList.add('feed'),i*220)));
+  const run=()=>{
+    reset(); inps.forEach(x=>x.classList.add('feed'));
+    let sec=0; iv=setInterval(()=>{ sec+=4; const m=Math.floor(sec/60), ss=sec%60; watch.textContent=`${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`; },60);
+    pns.forEach((p,i)=>timers.push(setTimeout(()=>{
+      clearCur();
+      p.classList.add('on'); dss[i].classList.add('on');
+      p.classList.add('cur'); dss[i].classList.add('cur');
+      fl.style.height=Math.max(0,p.offsetTop+18-18)+'px';
+      if(i===pns.length-1) timers.push(setTimeout(()=>{ clearInterval(iv); clearCur(); },500));
+    },500+i*620)));
+  };
+  const showFlag=()=>{ timers.push(setTimeout(()=>{ clearCur(); flag.classList.add('on'); flag.classList.add('cur'); }, 0)); };
+  document.getElementById('sysReset').onclick=reset;
+  document.getElementById('sysRun').onclick=()=>{ run(); timers.push(setTimeout(()=>{ clearCur(); flag.classList.add('on'); flag.classList.add('cur'); },500+secs.length*620+500)); };
+  s._steps=[feed, run, showFlag];
+  s._reset=reset;
+};
+
+/* ---------- auditoría ---------- */
+SLIDE_INIT.audit=(s,first)=>{
+  if(!first) return;
+  const cks=[...document.querySelectorAll('#checks .ck')], fg=document.getElementById('ringFg'), tx=document.getElementById('ringTx');
+  const C=2*Math.PI*110; fg.style.strokeDasharray=C; fg.style.strokeDashoffset=C;
+  const upd=()=>{ const n=cks.filter(c=>c.classList.contains('on')).length, p=n/cks.length; fg.style.strokeDashoffset=C*(1-p); tx.textContent=Math.round(p*100)+' %'; };
+  s._steps=cks.map(c=>()=>{ if(!c.classList.contains('on')) tap(c); else spot(cks,c); });
+  s._reset=()=>{ unspot(cks); cks.forEach(c=>{ c.classList.remove('on'); c.querySelector('i').textContent=''; }); upd(); };
+  cks.forEach(c=>{ c.tabIndex=0; const t=()=>{ c.classList.toggle('on'); c.querySelector('i').textContent=c.classList.contains('on')?'✓':''; if(c.classList.contains('on')) spot(cks,c); else unspot(cks); upd(); }; c.onclick=t; c.onkeydown=e=>{ if(e.key==='Enter'){e.stopPropagation();t();} }; });
+};
+
+/* ---------- partículas del flujo ---------- */
+SLIDE_INIT.pipe=(s,first)=>{
+  if(!first) return;
+  const g=document.getElementById('pp'), ns='http://www.w3.org/2000/svg', P=[];
+  pickSteps(s,[...s.querySelectorAll('.pipe .st')],document.getElementById('pipeD'));
+  const catCol=['var(--ink)','var(--sci)','var(--green)'];
+  const fresh=p=>{ p.lane=Math.random()<.5?0:1; p.t=-Math.random()*.9; p.v=.0035+Math.random()*.002; p.dup=Math.random()<.3; p.cut=Math.random()<.55; p.cat=Math.floor(Math.random()*3); p.j=(Math.random()-.5)*60; p.dead=0; p.el.style.opacity=1; };
+  for(let i=0;i<46;i++){ const c=document.createElementNS(ns,'circle'); c.setAttribute('r',7); g.appendChild(c); const p={el:c}; fresh(p); P.push(p); }
+  const lerp=(a,b,u)=>a+(b-a)*u;
+  (function loop(){
+    if(s.classList.contains('active')){
+      P.forEach(p=>{
+        if(p.dead>0){ p.dead-=.03; p.el.style.opacity=Math.max(0,p.dead); if(p.dead<=0) fresh(p); return; }
+        p.t+=p.v; if(p.t<0){ p.el.style.opacity=0; return; } p.el.style.opacity=1;
+        let x,y,col='var(--muted)';
+        const ly=p.lane?300:110;
+        if(p.t<.4){ const u=p.t/.4; x=lerp(390,720,u); y=lerp(ly,200+p.j*.5,u); col = p.dup?'var(--red)':'var(--muted)'; }
+        else if(p.t<.72){ if(p.dup){ p.dead=1; return; } const u=(p.t-.4)/.32; x=lerp(720,1040,u); y=200+p.j*.5*(1-u)+p.j*.3*u; col=p.cut?'#B8C3D3':catCol[p.cat]; }
+        else if(p.t<1){ if(p.cut){ p.dead=1; return; } const u=(p.t-.72)/.28; x=lerp(1040,1300,u); y=200+p.j*.3; col=catCol[p.cat]; }
+        else { fresh(p); return; }
+        p.el.setAttribute('cx',x); p.el.setAttribute('cy',y); p.el.style.fill=col;
+      });
+    }
+    requestAnimationFrame(loop);
+  })();
+};
+
+/* ---------- lenguaje natural a código ---------- */
+SLIDE_INIT.nl=(s,first)=>{
+  if(!first) return;
+  const data=[
+    {p:'Describe mis datos y muestra la distribución del rendimiento.',
+     c:'import pandas as pd\nimport seaborn as sns\n\ndf = pd.read_csv("riego.csv")\nprint(df.describe())\nsns.histplot(df["rendimiento"], kde=True)', o:'hist'},
+    {p:'¿Hay diferencias de rendimiento entre los tratamientos de riego?',
+     c:'from scipy import stats\n\ngrupos = [g["rendimiento"] for _, g in df.groupby("tratamiento")]\nprint(stats.shapiro(df["rendimiento"]))\nprint(stats.f_oneway(*grupos))\nsns.boxplot(data=df, x="tratamiento", y="rendimiento")', o:'box'},
+    {p:'Entrena una red neuronal para predecir el rendimiento y muestra la curva de pérdida.',
+     c:'from tensorflow import keras\n\nmodelo = keras.Sequential([\n    keras.layers.Dense(32, activation="relu"),\n    keras.layers.Dense(16, activation="relu"),\n    keras.layers.Dense(1)])\nmodelo.compile(optimizer="adam", loss="mse")\nhist = modelo.fit(X, y, validation_split=0.2, epochs=100)', o:'loss'}];
+  const tabs=[...document.querySelectorAll('#nlTabs .tab')], P=document.getElementById('nlPrompt'), C=document.getElementById('nlCode'), O=document.getElementById('nlOut');
+  let tok=0;
+  const axes='<line x1="50" y1="330" x2="500" y2="330" stroke="var(--line)" stroke-width="2"/><line x1="50" y1="20" x2="50" y2="330" stroke="var(--line)" stroke-width="2"/>';
+  const draw=(kind)=>{
+    if(kind==='hist'){
+      const hs=[18,40,75,120,170,210,225,200,150,100,55,25]; let h=axes;
+      hs.forEach((v,i)=>{ h+=`<rect x="${62+i*36}" y="${330-v}" width="30" height="${v}" rx="3" fill="#9DC0F5" style="transform-box:fill-box;transform-origin:bottom;transform:scaleY(0);transition:transform .7s ${i*.05}s cubic-bezier(.22,1,.36,1)"/>`; });
+      h+=`<path d="M62 318 C150 300 200 110 280 100 S420 290 490 318" fill="none" stroke="var(--gold)" stroke-width="4" stroke-dasharray="700" stroke-dashoffset="700" style="transition:stroke-dashoffset 1.4s .6s ease"/>`;
+      h+=`<text x="275" y="360" text-anchor="middle" font-size="16" fill="var(--muted)">rendimiento (t/ha)</text>`;
+      O.innerHTML=h;
+    } else if(kind==='box'){
+      let h=axes; const bx=[[130,'Continuo',160,250,120,290],[275,'Intermitente',120,200,80,240],[420,'Goteo',90,170,60,210]];
+      bx.forEach((b,i)=>{ h+=`<g style="opacity:0;transform:translateY(20px);transition:all .7s ${i*.2}s cubic-bezier(.22,1,.36,1)"><line x1="${b[0]}" y1="${b[4]}" x2="${b[0]}" y2="${b[5]}" stroke="var(--ink)" stroke-width="2"/><rect x="${b[0]-40}" y="${b[2]}" width="80" height="${b[3]-b[2]}" rx="6" fill="${i===2?'#FDF5E4':'var(--mist)'}" stroke="var(--ink)" stroke-width="2"/><line x1="${b[0]-40}" y1="${(b[2]+b[3])/2}" x2="${b[0]+40}" y2="${(b[2]+b[3])/2}" stroke="var(--sci)" stroke-width="4"/><text x="${b[0]}" y="356" text-anchor="middle" font-size="16" fill="var(--muted)">${b[1]}</text></g>`; });
+      h+=`<text x="480" y="50" text-anchor="end" font-size="20" font-weight="700" fill="var(--sci)" style="opacity:0;transition:opacity .6s 1s">ANOVA: p &lt; 0,05</text>`;
+      O.innerHTML=h;
+    } else {
+      let h=axes;
+      h+=`<path d="M52 40 C120 200 200 280 500 310" fill="none" stroke="var(--sci)" stroke-width="4" stroke-dasharray="700" stroke-dashoffset="700" style="transition:stroke-dashoffset 1.6s ease"/>`;
+      h+=`<path d="M52 60 C130 210 220 260 330 270 S440 262 500 268" fill="none" stroke="var(--gold)" stroke-width="4" stroke-dasharray="700" stroke-dashoffset="700" style="transition:stroke-dashoffset 1.6s .3s ease"/>`;
+      h+=`<text x="490" y="290" text-anchor="end" font-size="16" fill="var(--sci)">entrenamiento</text><text x="490" y="250" text-anchor="end" font-size="16" fill="#B07A00">validación</text><text x="275" y="360" text-anchor="middle" font-size="16" fill="var(--muted)">épocas</text>`;
+      O.innerHTML=h;
+    }
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      O.querySelectorAll('rect[style]').forEach(r=>r.style.transform='scaleY(1)');
+      O.querySelectorAll('path[stroke-dasharray]').forEach(p=>p.style.strokeDashoffset='0');
+      O.querySelectorAll('g[style],text[style]').forEach(g=>{ g.style.opacity=1; g.style.transform='none'; });
+    }));
+  };
+  const run=(k)=>{
+    const my=++tok; tabs.forEach((t,i)=>t.classList.toggle('on',i===k)); spot(tabs, tabs[k]);
+    const d=data[k]; P.textContent=''; C.innerHTML=''; O.innerHTML=axes;
+    let i=0;
+    const typeP=()=>{ if(my!==tok) return; if(i<=d.p.length){ P.textContent=d.p.slice(0,i); i+=2; setTimeout(typeP,16);} else { i=0; typeC(); } };
+    const typeC=()=>{ if(my!==tok) return; if(i<=d.c.length){ C.innerHTML=d.c.slice(0,i).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'<span class="cur"></span>'; i+=3; setTimeout(typeC,12);} else { C.innerHTML=d.c.replace(/&/g,'&amp;').replace(/</g,'&lt;'); draw(d.o); } };
+    typeP();
+  };
+  tabs.forEach((t,i)=>t.onclick=()=>run(i));
+  s._steps=[()=>run(1), ()=>run(2)];
+  s._reset=()=>run(0);
+};
+
+/* ---------- escalera ---------- */
+SLIDE_INIT.ladder=(s,first)=>{
+  if(!first) return;
+  const info=[
+    ['Descriptivo','«Resume y grafica cada variable.»','Audita: valores faltantes y atípicos.'],
+    ['Inferencial','«Compara el rendimiento entre tratamientos con la prueba adecuada.»','Audita: supuestos de normalidad y homogeneidad.'],
+    ['Machine learning','«Entrena un random forest para predecir el rendimiento.»','Audita: fuga de datos y validación cruzada.'],
+    ['Red neuronal','«Construye una red neuronal y muestra la curva de pérdida.»','Audita: sobreajuste y tamaño de muestra.']];
+  const pos=[[105,420],[290,300],[475,180],[660,60]];
+  const steps=[...s.querySelectorAll('.step')], cl=document.getElementById('climber'), D=document.getElementById('ladD');
+  steps.forEach((st,i)=>{ st.setAttribute('tabindex','0'); const pick=()=>{
+    steps.forEach(x=>x.classList.remove('on')); st.classList.add('on');
+    spot(steps, st);
+    cl.style.transform=`translate(${pos[i][0]}px,${pos[i][1]}px)`;
+    D.innerHTML=`<h4>${dstep(i+1, info.length)}${info[i][0]}</h4><div>${info[i][1]}</div><div style="color:var(--red);margin-top:8px;font-weight:600">${info[i][2]}</div>`;
+    D.classList.remove('swap'); void D.offsetWidth; D.classList.add('swap'); };
+    st.addEventListener('click',pick); st.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.stopPropagation();pick();} }); });
+  const def=D.innerHTML;
+  s._steps=steps.map(st=>()=>tap(st));
+  s._reset=()=>{ unspot(steps); steps.forEach(x=>x.classList.remove('on')); D.innerHTML=def; cl.style.transform='translate(105px,420px)'; };
+};
+
+/* ---------- tarjetas de política ---------- */
+SLIDE_INIT.pcards=(s,first)=>{
+  if(!first) return;
+  const items=[
+    ['Mejorar la redacción','y','Sí','Con declaración de uso.'],
+    ['Revisar estructura y coherencia','y','Sí','Con declaración de uso.'],
+    ['Corregir ortografía y gramática','y','Sí','Sin declarar, en Elsevier.'],
+    ['Apoyar el análisis de datos','m','Sí, pero','Descrito de forma reproducible en Métodos.'],
+    ['Poner la IA como coautora','n','No','La autoría implica responsabilidad humana.'],
+    ['Generar o alterar datos y resultados','n','No','Es fabricación.']];
+  const box=document.getElementById('pcards');
+  items.forEach((it,i)=>{
+    const d=document.createElement('div'); d.className='pc in'; d.style.setProperty('--d',3+i*.5); d.tabIndex=0;
+    d.innerHTML=`<div class="in2"><div class="fc"><span>${it[0]}</span><small>¿Se permite?</small></div><div class="bk ${it[1]}"><b>${it[2]}</b><span>${it[3]}</span></div></div>`;
+    box.appendChild(d);
+  });
+  const cards=[...box.children];
+  cards.forEach(d=>{
+    const t=()=>{ d.classList.toggle('flip'); if(d.classList.contains('flip')) spot(cards,d); else unspot(cards); };
+    d.onclick=t; d.onkeydown=e=>{ if(e.key==='Enter'){e.stopPropagation();t();} };
+  });
+  s._steps=cards.map(c=>()=>{ c.classList.add('flip'); spot(cards,c); });
+  s._reset=()=>{ unspot(cards); cards.forEach(c=>c.classList.remove('flip')); };
+};
+
+/* ---------- SciSpace ---------- */
+SLIDE_INIT.sci=(s,first)=>{
+  if(!first) return;
+  const ex=[
+    {t:'El riego intermitente puede <mark>reducir el consumo de agua</mark> en arroz <mark>sin disminuir el rendimiento</mark>.',
+     c:[['Referencia A: apoya','s'],['Referencia B: apoya','s'],['Referencia C: matiza','m']]},
+    {t:'Nuestros resultados <mark>coinciden</mark> con estudios previos en el ahorro de agua, pero <mark>difieren</mark> en el efecto sobre el rendimiento.',
+     c:[['Referencia A: coincide','s'],['Referencia D: contrasta','c'],['Referencia E: contrasta','c']]}];
+  const tabs=[...document.querySelectorAll('#sciTabs .tab')], T=document.getElementById('sciText'), CI=document.getElementById('sciCites'), sc=document.getElementById('sciScan'), idea=document.getElementById('sciIdea');
+  let k=0;
+  const show=i=>{ k=i; tabs.forEach((t,j)=>t.classList.toggle('on',j===i)); spot(tabs, tabs[i]); idea.classList.remove('spot-on'); T.innerHTML=ex[i].t; CI.innerHTML=''; };
+  tabs.forEach((t,i)=>t.onclick=()=>show(i));
+  const suggest=()=>{
+    CI.innerHTML=''; sc.classList.remove('go'); void sc.offsetWidth; sc.classList.add('go');
+    idea.classList.add('spot-on');
+    const kk=k; ex[k].c.forEach((c,j)=>setTimeout(()=>{
+      if(kk!==k) return;
+      CI.insertAdjacentHTML('beforeend',`<span class="cite ${c[1]}">${c[0]}</span>`);
+      if(j===ex[kk].c.length-1) idea.classList.remove('spot-on');
+    },900+j*350));
+  };
+  document.getElementById('sciGo').onclick=suggest;
+  s._steps=[suggest, ()=>show(1), suggest];
+  s._reset=()=>show(0);
+  show(0);
+};
+
+/* ---------- Prism ---------- */
+SLIDE_INIT.prism=(s,first)=>{
+  if(!first) return;
+  const lines=[
+    ['\\documentclass{article}',0],
+    ['\\title{Huella hídrica del arroz bajo riego intermitente}',1],
+    ['\\author{Autor, Filiación}',1],
+    ['\\begin{abstract} Se compara el consumo... \\end{abstract}',2],
+    ['\\section{Introducción}',3],
+    ['\\section{Métodos}',4],
+    ['\\begin{equation}',5],
+    ['  HH_{verde} = \\frac{10 \\sum ET}{Y}',5],
+    ['\\end{equation}',5],
+    ['\\includegraphics{rendimiento.pdf}',6],
+    ['\\bibliography{referencias}',7]];
+  const tex=document.getElementById('tex'), parts=[...document.querySelectorAll('#page .pp')];
+  tex.innerHTML=lines.map(l=>`<div class="l">${l[0].replace(/(\\[a-zA-Z]+)/g,'<span class="k">$1</span>')}</div>`).join('');
+  const ls=[...tex.querySelectorAll('.l')]; let timers=[];
+  const clearCur=()=>{ ls.forEach(l=>l.classList.remove('cur')); parts.forEach(p=>p.classList.remove('cur')); };
+  const reset=()=>{ timers.forEach(clearTimeout); timers=[]; clearCur(); ls.forEach(l=>l.classList.remove('on')); parts.forEach(p=>p.classList.remove('on')); };
+  document.getElementById('prReset').onclick=reset;
+  const runP=()=>{ reset();
+    lines.forEach((l,i)=>timers.push(setTimeout(()=>{
+      clearCur();
+      ls[i].classList.add('on','cur');
+      parts.filter(p=>+p.dataset.i===l[1]).forEach(p=>p.classList.add('on','cur'));
+      if(i===lines.length-1) timers.push(setTimeout(clearCur,1200));
+    },300+i*450)));
+  };
+  document.getElementById('prRun').onclick=runP;
+  s._steps=[runP];
+  s._reset=reset;
+};
+
+/* ---------- datos de contexto: fuentes, gráficas y cifras ---------- */
+const FUENTES={
+  aiindex26:{org:'Stanford HAI',titulo:'AI Index Report 2026, cap. 5: Science',url:'https://hai.stanford.edu/assets/files/ai_index_report_2026_chapter_5_science.pdf'},
+  wiley:{org:'Wiley',titulo:'ExplanAItions 2025, hallazgos clave',url:'https://www.wiley.com/en-us/about-us/ai-resources/ai-study/key-findings/'},
+  kobak:{org:'Kobak et al., Science Advances',titulo:'Delving into LLM-assisted writing in biomedical publications through excess vocabulary',url:'https://arxiv.org/html/2406.07016v3'},
+  holzwarth:{org:'Holzwarth, González-Márquez y Kobak',titulo:'Most biomedical publications show signs of LLM-assisted writing (preprint)',url:'https://arxiv.org/abs/2608.10715'},
+  iesalc:{org:'UNESCO IESALC',titulo:'Adopción y gobernanza de la IA en la educación superior de América Latina y el Caribe',url:'https://ess.iesalc.unesco.org/index.php/ess3/article/view/v37i2-dt-14'},
+  frontiers:{org:'Frontiers',titulo:'Unlocking AI\'s untapped potential: responsible innovation in research and publishing',url:'https://www.frontiersin.org/field-notes/2025/12/15/ai_in_peer_review_dec-25'}
+};
+document.querySelectorAll('.fuente[data-f]').forEach(el=>{
+  const ks=el.dataset.f.split(/\s+/), SUP=['①','②','③'];
+  el.innerHTML=`<em>${ks.length>1?'Fuentes':'Fuente'}</em>`+ks.map((k,i)=>{ const f=FUENTES[k];
+    return `<span>${ks.length>1?`<span class="n">${SUP[i]}</span>`:''}<a href="${f.url}" target="_blank" rel="noopener">${f.org} · ${f.titulo}</a></span>`; }).join('');
+});
+
+/* paleta de la charla, llevada a las gráficas */
+const DV={ink:'#0B2545',sci:'#1668E3',gold:'#E3A41A',red:'#D9483B',muted:'#5B6B82',line:'#D5DEEA',soft:'#9DC0F5',gray:'#CBD5E3',track:'#F2F5FA'};
+const RAMP=['#BCD2F6','#7FA9EE','#3F80E8','#1668E3','#0F4DAF','#0B2545'];
+const hexRGB=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+function enRampa(t){
+  const p=(.1+.9*t)*(RAMP.length-1), i=Math.min(Math.floor(p),RAMP.length-2), f=p-i, a=hexRGB(RAMP[i]), b=hexRGB(RAMP[i+1]);
+  return '#'+a.map((v,k)=>Math.round(v+(b[k]-v)*f).toString(16).padStart(2,'0')).join('');
+}
+const rampa=vs=>{ const mn=Math.min(...vs), w=(Math.max(...vs)-mn)||1; return vs.map(v=>enRampa(Math.sqrt((v-mn)/w))); };
+/* coma decimal: «86.5 %» se leería como otro número */
+const pct=v=>String(v).replace('.',',')+' %';
+const NUM={fontFamily:'Bricolage Grotesque',fontWeight:700,fontSize:24,color:DV.ink};
+const LBL=Object.assign({show:true,position:'right',distance:12,formatter:p=>pct(p.value)},NUM);
+const MUDO={type:'value',axisLabel:{show:false},splitLine:{show:false},axisLine:{show:false},axisTick:{show:false}};
+const CAT=(data,fs)=>({type:'category',inverse:true,data,axisLine:{show:false},axisTick:{show:false},
+  axisLabel:{color:DV.ink,fontSize:fs||21,fontWeight:600,fontFamily:'Figtree',margin:18}});
+function hbar(cats,vals,o){
+  o=o||{}; const cols=o.colors||rampa(vals);
+  return {
+    grid:{left:40,right:100,top:6,bottom:6,containLabel:true},
+    xAxis:Object.assign({max:o.max||100},MUDO),
+    yAxis:CAT(cats,o.fs),
+    series:[{type:'bar',barWidth:o.bw||'58%',label:LBL,
+      showBackground:o.track!==false,backgroundStyle:{color:DV.track,borderRadius:[0,8,8,0]},
+      data:vals.map((v,i)=>({value:v,itemStyle:{color:cols[i],borderRadius:[0,8,8,0]}}))}]
+  };
+}
+
+const GRAF={
+  /* dos oleadas de la misma encuesta, dos cortes de la pregunta */
+  uso:()=>({
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(22,104,227,.06)'}},valueFormatter:pct},
+    legend:{top:0,right:0,icon:'roundRect',itemWidth:18,itemHeight:18,itemGap:26,textStyle:{fontSize:20,color:DV.muted,fontFamily:'Figtree'}},
+    grid:{left:10,right:10,top:56,bottom:4,containLabel:true},
+    xAxis:{type:'category',data:['Cualquier tarea de su trabajo','Tareas de investigación o publicación'],axisLine:{lineStyle:{color:DV.line,width:2}},axisTick:{show:false},
+      axisLabel:{color:DV.ink,fontSize:22,fontWeight:600,fontFamily:'Figtree',margin:16}},
+    yAxis:{type:'value',max:100,interval:25,axisLabel:{color:DV.muted,fontSize:17,fontFamily:'Figtree',formatter:'{value} %'},splitLine:{lineStyle:{color:DV.line,type:'dashed'}}},
+    series:[
+      {name:'2024',type:'bar',barWidth:'22%',barGap:'18%',data:[57,45],itemStyle:{color:DV.soft,borderRadius:[8,8,0,0]},label:Object.assign({show:true,position:'top',formatter:p=>pct(p.value)},NUM)},
+      {name:'2025',type:'bar',barWidth:'22%',data:[84,62],itemStyle:{color:DV.sci,borderRadius:[8,8,0,0]},label:Object.assign({show:true,position:'top',formatter:p=>pct(p.value)},NUM)}]
+  }),
+  /* el titular habla de la primera: esa en azul, el resto suave */
+  beneficios:()=>hbar(['Mejoró su eficiencia','Aumentó la cantidad de trabajo','Mejoró la calidad del trabajo','Sirve para generar ideas','Ayuda a concentrarse en lo importante'],
+    [85,77,73,70,61],{colors:[DV.sci,DV.soft,DV.soft,DV.soft,DV.soft],fs:20}),
+  /* usar frente a gobernar: los dos extremos que nombra el titular */
+  latam:()=>hbar(['Usa IA en alguna función','Tiene estrategia formal de IA','Tiene políticas de alcance institucional','Tiene una estructura de gobernanza designada','Tiene mecanismos formales de evaluación','Tiene presupuesto dedicado a IA'],
+    [86.5,26,18.5,18,9,8],{colors:[DV.sci,DV.gray,DV.gray,DV.gray,DV.gray,DV.gold],bw:'62%'}),
+  /* la marca humana va como barra propia, en dorado, en vez de una línea vertical sin rótulo */
+  brecha:()=>{
+    const m=[38.8,37.4,36.7,34.6,34.3,30.7,29.3,28.8,26.3];
+    return hbar(['Experto con doctorado','Gemini 2.5 Pro','OpenAI o4-mini-high','Claude Sonnet 4','GPT-4.1','Qwen3-235B-Thinking','GLM-4.5','Claude 3.5 Sonnet','Qwen3-235B-Instruct','Kimi-K2-Instruct'],
+      [83.5].concat(m),{colors:[DV.gold].concat(rampa(m)),bw:'64%',fs:19});
+  },
+  /* pendiente: dos momentos, las dos barreras suben */
+  barreras:()=>{
+    const serie=(name,data,col,pos)=>({name,type:'line',data,symbol:'circle',symbolSize:16,lineStyle:{width:5,color:col},itemStyle:{color:col},
+      label:Object.assign({show:true,position:pos,distance:12,formatter:p=>pct(p.value)},NUM),
+      endLabel:{show:true,formatter:p=>p.seriesName,fontFamily:'Figtree',fontWeight:600,fontSize:21,color:col,distance:26}});
+    return {
+      tooltip:{trigger:'axis',valueFormatter:pct},
+      grid:{left:10,right:470,top:40,bottom:4,containLabel:true},
+      xAxis:{type:'category',boundaryGap:false,data:['2024','2025'],axisLine:{lineStyle:{color:DV.line,width:2}},axisTick:{show:false},
+        axisLabel:{color:DV.ink,fontSize:22,fontWeight:700,fontFamily:'Bricolage Grotesque',margin:16}},
+      yAxis:{type:'value',min:30,max:70,interval:10,axisLabel:{color:DV.muted,fontSize:17,fontFamily:'Figtree',formatter:'{value} %'},splitLine:{lineStyle:{color:DV.line,type:'dashed'}}},
+      series:[serie('Imprecisiones y alucinaciones',[51,64],DV.red,'top'),serie('Seguridad de la información y privacidad',[47,58],DV.ink,'bottom')]
+    };
+  },
+  revistas:()=>hbar(['Sensors','Revistas MDPI','Revistas Frontiers','Cureus','Familia Nature','Nature, Science y Cell'],[25,21,20,20,10,7],{max:30,track:false,fs:20}),
+  idioma:()=>hbar(['Resto del mundo','Países anglófonos nativos'],[72,37],{colors:[DV.sci,DV.gray],bw:'54%',fs:22})
+};
+
+const charts=new Map();
+const quieto=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function contar(s){
+  s.querySelectorAll('[data-cifra]').forEach(el=>{
+    const fin=+el.dataset.cifra, suf=el.dataset.suf||'';
+    const pinta=v=>el.textContent=Math.round(v).toLocaleString('es-CO')+suf;
+    if(quieto){ pinta(fin); return; }
+    pinta(0); const dur=1400, t0=performance.now()+350;
+    /* si los fotogramas no corren, la cifra nunca se queda en cero */
+    const red=setTimeout(()=>pinta(fin),dur+900);
+    requestAnimationFrame(function paso(t){
+      const p=Math.max(0,Math.min(1,(t-t0)/dur));
+      if(p>=1){ clearTimeout(red); pinta(fin); return; }
+      pinta(fin*(1-Math.pow(1-p,3))); requestAnimationFrame(paso);
+    });
+  });
+}
+function dibujarDatos(s){
+  s.querySelectorAll('[data-g]').forEach(el=>{
+    const mk=GRAF[el.dataset.g]; if(!mk || !window.echarts) return;
+    let ch=charts.get(el);
+    if(!ch){ ch=echarts.init(el,null,{renderer:'canvas',devicePixelRatio:Math.max(2,window.devicePixelRatio||1)}); charts.set(el,ch); }
+    ch.resize();
+    const o=mk();
+    o.textStyle={fontFamily:'Figtree'};
+    o.animation=!quieto; o.animationEasing='cubicOut';
+    o.animationDuration=1400; o.animationDelay=i=>350+i*90;
+    if(!o.tooltip) o.tooltip={trigger:'item',formatter:p=>`${p.name}: <b>${pct(p.value)}</b>`};
+    Object.assign(o.tooltip,{backgroundColor:'#fff',borderColor:DV.line,borderWidth:1,padding:[10,14],
+      textStyle:{color:DV.ink,fontFamily:'Figtree',fontSize:17},extraCssText:'border-radius:12px;box-shadow:0 10px 30px rgba(11,37,69,.12)'});
+    /* true: tira la opción anterior y la animación vuelve a arrancar en cada visita */
+    ch.setOption(o,true);
+  });
+  contar(s);
+}
+SLIDE_INIT.data=(s)=>dibujarDatos(s);
+/* ECharts mide el texto con la fuente cargada en ese momento: redibujar cuando lleguen */
+if(document.fonts && document.fonts.load){
+  Promise.all([document.fonts.load('700 24px "Bricolage Grotesque"'),document.fonts.load('600 21px Figtree'),document.fonts.ready]).then(()=>{
+    const a=document.querySelector('.slide.active'); if(a && a.dataset.init==='data') dibujarDatos(a);
+  }).catch(()=>{});
+}
+
+</script>
+<script>
+/* ================= bloque conceptual: qué es la IA, cómo funciona, IA vs. agente =================
+   Portado de viaje-llm.html. Cada diapositiva conserva su lienzo interno de 1280×720 (.llm-box ×1,25)
+   y se engancha al motor de la charla con SLIDE_INIT, s._steps y s._reset. */
+(() => {
+const INK='#0B2545', COBALT='#1668E3', AMBER='#E3A41A', AMBER_T='#A86F00';
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const lerp3=(a,b,k)=>[a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k,a[2]+(b[2]-a[2])*k];
+const add3=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const dist3=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+const now=()=>performance.now()/1000;
+const SANS='Figtree, sans-serif', MONO='"IBM Plex Mono", monospace';
+
+// escala en pantalla de un píxel del lienzo interno: escenario (1600×900) × 1,25
+let SCALE=1, DPR=1;
+function measure(){SCALE=Math.min(innerWidth/1600,innerHeight/900)*1.25;DPR=Math.min(window.devicePixelRatio||1,2)}
+measure();
+
+/* ---------- el espacio de palabras (posiciones fijas) ---------- */
+const GROUPS={
+  pais:{name:'Países',color:COBALT},
+  capital:{name:'Capitales',color:AMBER},
+  ciudad:{name:'Ciudades de Colombia',color:'#B8904A'},
+  concepto:{name:'Geografía política',color:'#7466B0'},
+  comida:{name:'Comida',color:'#B0715A'},
+  animal:{name:'Animales',color:'#1F9D6B'},
+  funcion:{name:'Palabras funcionales',color:'#8C93A3'}
+};
+const WORDS=[]; const add=(w,g,p,side)=>WORDS.push({w,g,p,side:side||'R'});
+let D=[4.6,.25,-.3]; // dirección país → capital
+[['Francia','París',110],['España','Madrid',138],['Colombia','Bogotá',166],
+ ['Perú','Lima',194],['Chile','Santiago',222],['Argentina','Buenos Aires',250]].forEach(([c,k,deg])=>{
+  const a=deg*Math.PI/180, p=[-1.9+2.2*Math.cos(a),2.1*Math.sin(a),.35*Math.sin(2*a)];
+  add(c,'pais',p,'L'); add(k,'capital',add3(p,D),'R');
+});
+const OFF=[[-.6,.3,.2],[.55,.4,-.2],[-.15,-.45,.3],[.7,-.3,-.25]];
+const cluster=(g,list,c)=>list.forEach((w,i)=>add(w,g,add3(c,OFF[i])));
+cluster('ciudad',['Medellín','Cali','Cartagena'],[3.8,-.4,1.4]);
+cluster('concepto',['capital','país','gobierno','nación'],[.3,3.3,-1]);
+cluster('funcion',['¿','cuál','?','de'],[-4.3,3.3,-1]);
+cluster('comida',['arepa','ajiaco','café'],[-.6,-3.3,1]);
+cluster('animal',['cóndor','jaguar','perro'],[3.5,-3.1,-1]);
+const STRETCH=p=>[p[0]*1.55,p[1]*.75,p[2]];
+WORDS.forEach(o=>o.p=STRETCH(o.p)); D=STRETCH(D);
+const AX0=[-7.8,-3.3,-1.2];
+const FLOOR=[AX0,[AX0[0]+1.6,AX0[1],AX0[2]],[AX0[0],AX0[1]+1.6,AX0[2]],[AX0[0],AX0[1],AX0[2]+1.6]];
+const pos=w=>WORDS.find(o=>o.w===w).p;
+const BG=pos('Bogotá');
+const EDGES=[]; const seen=new Set();
+WORDS.forEach((o,i)=>{
+  WORDS.map((q,j)=>({j,d:q.g===o.g&&j!==i?dist3(o.p,q.p):1e9})).sort((a,b)=>a.d-b.d).slice(0,2).forEach(({j,d})=>{
+    if(d>=1e9)return;const k=Math.min(i,j)+'-'+Math.max(i,j);if(seen.has(k))return;seen.add(k);EDGES.push([i,j]);
+  });
+});
+// zonas del lienzo interno: la nube cabe en SAFE; las etiquetas no entran en RESERVED
+// (arriba: pregunta y vecinos, por debajo del cromo de la charla; abajo: frase del paso y barra de progreso)
+const SAFE={x0:150,x1:1130,y0:205,y1:570};
+const RESERVED=[[0,0,1280,185],[0,600,1280,720]];
+
+class Scene{
+  constructor(cv,o){
+    this.cv=cv;this.ctx=cv.getContext('2d');
+    Object.assign(this,{yaw:-.55,pitch:.3,yawT:null,pitchT:.3,spin:.08,spinT:.08,dist:13,zoom:1,cx:.5,cy:.55,
+      halos:0,hTarget:0,focus:null,arrows:[],arrowLabel:null,probe:null,appear:0,hide:new Set(),
+      win:false,winT:0,showGroups:false,showNear:false,labelPri:null,fitSet:null,onNear:null},o);
+    this.la=new Map();this.prevPlaced=new Set();
+    this.bindDrag();
+  }
+  bindDrag(){
+    let d=null;
+    this.cv.addEventListener('pointerdown',e=>{d={x:e.clientX,y:e.clientY,m:0};this.drag=true;try{this.cv.setPointerCapture(e.pointerId)}catch(_){}});
+    this.cv.addEventListener('pointermove',e=>{if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;d.x=e.clientX;d.y=e.clientY;d.m+=Math.abs(dx)+Math.abs(dy);
+      if(d.m>5){this.yawT=null;this.pitchT=null}
+      this.yaw+=dx*.008/SCALE;this.pitch=clamp(this.pitch+dy*.006/SCALE,-.25,1.1)});
+    const up=()=>{d=null;this.drag=false};
+    this.cv.addEventListener('pointerup',up);this.cv.addEventListener('pointercancel',up);
+  }
+  resize(){
+    this.w=this.cv.offsetWidth;this.h=this.cv.offsetHeight;this.px=SCALE*DPR;
+    this.cv.width=Math.max(1,Math.round(this.w*this.px));this.cv.height=Math.max(1,Math.round(this.h*this.px));
+  }
+  proj(p){
+    const cy=Math.cos(this.yaw),sy=Math.sin(this.yaw),cp=Math.cos(this.pitch),sp=Math.sin(this.pitch);
+    const x1=p[0]*cy-p[2]*sy, z1=p[0]*sy+p[2]*cy;
+    const y1=p[1]*cp-z1*sp, z2=p[1]*sp+z1*cp;
+    const f=720*1.2*this.zoom/(this.dist-z2);
+    return {x:this.w*this.cx+x1*f,y:this.h*this.cy-y1*f,z:z2,f};
+  }
+  autofit(k){
+    if(!this.w)return;
+    const set=(this.fitSet||WORDS.map(o=>o.p).concat(FLOOR)).slice();
+    if(this.probe&&this.probe.pos)set.push(this.probe.pos);
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+    set.forEach(p=>{const P=this.proj(p);x0=Math.min(x0,P.x);x1=Math.max(x1,P.x);y0=Math.min(y0,P.y);y1=Math.max(y1,P.y)});
+    const s=Math.min((SAFE.x1-SAFE.x0)/Math.max(40,x1-x0),(SAFE.y1-SAFE.y0)/Math.max(40,y1-y0));
+    const zt=clamp(this.zoom*s,.3,4);
+    this.zoom+=(zt-this.zoom)*k;
+    this.cx+=((SAFE.x0+SAFE.x1)/2-(x0+x1)/2)/this.w*k;
+    this.cy+=((SAFE.y0+SAFE.y1)/2-(y0+y1)/2)/this.h*k;
+  }
+  prime(){for(let i=0;i<60;i++)this.autofit(.5)}
+  text(c,s,x,y){c.lineJoin='round';c.lineWidth=4;c.strokeStyle='rgba(255,255,255,.95)';c.strokeText(s,x,y);c.fillText(s,x,y)}
+  arrow(c,a,b,color,dashed,prog,lw){
+    const e=lerp3(a,b,prog), A=this.proj(a), E=this.proj(e);
+    c.save();c.strokeStyle=color;c.fillStyle=color;c.lineWidth=lw||2.6;c.lineCap='round';
+    if(dashed)c.setLineDash([8,7]);
+    c.beginPath();c.moveTo(A.x,A.y);c.lineTo(E.x,E.y);c.stroke();c.setLineDash([]);
+    if(prog>.15){const ang=Math.atan2(E.y-A.y,E.x-A.x),h=13;
+      c.beginPath();c.moveTo(E.x,E.y);c.lineTo(E.x-h*Math.cos(ang-.42),E.y-h*Math.sin(ang-.42));
+      c.lineTo(E.x-h*Math.cos(ang+.42),E.y-h*Math.sin(ang+.42));c.closePath();c.fill();}
+    c.restore();
+  }
+  // etiquetas: por prioridad, cuatro posiciones posibles, sin choques
+  placeLabels(c,cand,obst,dt){
+    const boxes=RESERVED.concat(obst);
+    cand.forEach(l=>{if(this.prevPlaced.has(l.key))l.pri+=.5});
+    cand.sort((a,b)=>b.pri-a.pri);
+    const placed=new Set();
+    c.textBaseline='top';
+    cand.forEach(l=>{
+      c.font=l.font;const tw=c.measureText(l.s).width,th=l.fs;
+      const P={R:[l.x+l.r+6,l.y-th/2],L:[l.x-l.r-6-tw,l.y-th/2],T:[l.x-tw/2,l.y-l.r-5-th],B:[l.x-tw/2,l.y+l.r+5]};
+      const order=l.pref==='L'?'LRTB':l.pref==='T'?'TBRL':'RLTB';
+      for(const ch of order){
+        const [x,y]=P[ch],b=[x-3,y-2,x+tw+3,y+th+2];
+        if(b[0]<4||b[2]>this.w-4||b[1]<4||b[3]>this.h-4)continue;
+        if(boxes.some(o=>b[0]<o[2]&&b[2]>o[0]&&b[1]<o[3]&&b[3]>o[1]))continue;
+        boxes.push(b);placed.add(l.key);
+        const la=Math.min(1,(this.la.get(l.key)||0)+dt*5);this.la.set(l.key,la);
+        c.globalAlpha=l.alpha*la;c.fillStyle=l.color;this.text(c,l.s,x,y);
+        break;
+      }
+    });
+    for(const k of this.la.keys())if(!placed.has(k))this.la.set(k,0);
+    this.prevPlaced=placed;
+    c.textBaseline='alphabetic';
+  }
+  draw(dt,t){
+    if(!this.w)return;
+    const k3=Math.min(1,dt*1.8);
+    this.spin+=(this.spinT-this.spin)*k3;
+    if(this.yawT!=null){let d=this.yawT-this.yaw;d=((d+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;this.yaw+=d*k3}
+    else if(!this.drag&&!reduce)this.yaw+=this.spin*dt;
+    if(this.pitchT!=null)this.pitch+=(this.pitchT-this.pitch)*k3;
+    this.autofit(Math.min(1,dt*2.2));
+    this.halos+=(this.hTarget-this.halos)*Math.min(1,dt*3);
+    this.appear=Math.min(1.6,this.appear+dt*.9);
+    const c=this.ctx;c.setTransform(this.px,0,0,this.px,0,0);c.clearRect(0,0,this.w,this.h);
+    const show=clamp(this.appear*2);
+    // ejes
+    const o=AX0,P0=this.proj(o);
+    c.globalAlpha=.55*show;c.strokeStyle='#A9B4C4';c.lineWidth=1.4;c.font='500 12px '+MONO;c.fillStyle='#5B6B82';
+    [[1.6,0,0],[0,1.6,0],[0,0,1.6]].forEach((v,i)=>{const P=this.proj(add3(o,v));c.beginPath();c.moveTo(P0.x,P0.y);c.lineTo(P.x,P.y);c.stroke();c.fillText('dim '+(i+1),P.x+4,P.y-4)});
+    c.globalAlpha=.5*show;c.fillText('… dim 12.288',P0.x+6,P0.y+18);
+    // halos y constelaciones
+    const PP=WORDS.map(w=>this.proj(w.p));
+    if(this.halos>.01){
+      Object.keys(GROUPS).forEach(g=>{
+        if(this.focus&&!this.focus.has(g))return;
+        const idx=WORDS.map((w,i)=>w.g===g?i:-1).filter(i=>i>=0);
+        const cx=idx.reduce((s,i)=>s+PP[i].x,0)/idx.length,cy=idx.reduce((s,i)=>s+PP[i].y,0)/idx.length;
+        const r=Math.max(...idx.map(i=>Math.hypot(PP[i].x-cx,PP[i].y-cy)))+34;
+        const grd=c.createRadialGradient(cx,cy,0,cx,cy,r);grd.addColorStop(0,GROUPS[g].color);grd.addColorStop(1,'rgba(255,255,255,0)');
+        c.globalAlpha=.1*this.halos;c.fillStyle=grd;c.beginPath();c.arc(cx,cy,r,0,7);c.fill();
+      });
+      c.lineWidth=1.2;
+      EDGES.forEach(([i,j])=>{const a=WORDS[i];if(this.focus&&!this.focus.has(a.g))return;
+        c.globalAlpha=.25*this.halos;c.strokeStyle=GROUPS[a.g].color;c.beginPath();c.moveTo(PP[i].x,PP[i].y);c.lineTo(PP[j].x,PP[j].y);c.stroke()});
+    }
+    // flechas
+    this.arrows.forEach(ar=>{
+      if(ar.slide){ // copia de la flecha que se desliza hasta Colombia
+        const k=reduce?1:ease(clamp((t-ar.t0)/1.8));
+        const s=lerp3(ar.from,ar.to,k),e=add3(s,[ar.d[0]*.95,ar.d[1]*.95,ar.d[2]*.95]);
+        c.globalAlpha=1;this.arrow(c,s,e,AMBER,k<1,1,3.2);return;
+      }
+      const pr=reduce?1:ease(clamp((t-ar.t0)/1.2));if(pr<=0)return;
+      c.globalAlpha=ar.alpha==null?1:ar.alpha;
+      this.arrow(c,ar.a,ar.b,ar.color,ar.dashed,pr,ar.lw);
+    });
+    // sonda (vector del token «?»)
+    let near=null,obst=[];
+    if(this.probe){
+      const pb=this.probe,k=reduce?1:ease(clamp((t-pb.t0)/pb.dur));
+      pb.pos=lerp3(pb.from,pb.to,k);
+      near=WORDS.map(o=>({o,d:dist3(o.p,pb.pos)})).sort((a,b)=>a.d-b.d).slice(0,3);
+      const P=this.proj(pb.pos);
+      const pts=[...pb.trail,pb.pos].map(p=>this.proj(p));
+      c.save();c.strokeStyle=COBALT;c.globalAlpha=.5;c.lineWidth=1.8;c.setLineDash([2,7]);c.lineCap='round';
+      c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.stroke();c.restore();
+      pb.trail.forEach(p=>{const Q=this.proj(p);c.globalAlpha=.45;c.fillStyle=COBALT;c.beginPath();c.arc(Q.x,Q.y,3,0,7);c.fill()});
+      near.forEach((r,i)=>{const Q=PP[WORDS.indexOf(r.o)];c.globalAlpha=i?.18:.6;c.strokeStyle=i?COBALT:AMBER;c.lineWidth=i?1:1.6;c.beginPath();c.moveTo(P.x,P.y);c.lineTo(Q.x,Q.y);c.stroke()});
+      this._probeP=P;
+      obst.push([P.x-12,P.y-12,P.x+12,P.y+12]);
+    }
+    // puntos
+    const nearSet=near?new Set(near.map(n=>n.o.w)):null;
+    const won=this.win&&t>=this.winT;
+    const cand=[];
+    WORDS.map((o,i)=>({o,i,p:PP[i]})).sort((a,b)=>a.p.z-b.p.z).forEach(({o,i,p})=>{
+      const k=reduce?1:ease(clamp((this.appear-i*.02)/.5));if(k<=0)return;
+      const dim=this.focus&&!this.focus.has(o.g);
+      const a=(dim?.15:1)*(.5+.5*clamp((p.z+6)/11));
+      const isWin=won&&o.w==='Bogotá', isNear=this.showNear&&nearSet&&nearSet.has(o.w);
+      const r=(2.4+p.f*.045)*k*(isWin?1.9:isNear?1.4:1);
+      const col=GROUPS[o.g].color;
+      c.globalAlpha=a*.18;c.fillStyle=col;c.beginPath();c.arc(p.x,p.y,r*2.2,0,7);c.fill();
+      c.globalAlpha=a;c.beginPath();c.arc(p.x,p.y,r,0,7);c.fill();
+      if(!dim)obst.push([p.x-r,p.y-r,p.x+r,p.y+r]);
+      let pri=this.labelPri?this.labelPri(o):0;
+      if(isNear)pri=Math.max(pri,7);
+      if(isWin)pri=10;
+      if(dim||this.hide.has(o.w)||k<.6)pri=0;
+      if(pri>0){
+        const fs=Math.round((isWin?20:13)+p.f*.03);
+        cand.push({key:o.w,s:o.w,x:p.x,y:p.y,r,pri,fs,font:(pri>=5?'700 ':'600 ')+fs+'px '+SANS,
+          color:isWin||(isNear&&near[0].o===o)?AMBER_T:INK,alpha:Math.max(a,.75),pref:o.side});
+      }
+    });
+    if(this.showGroups&&this.halos>.3){
+      Object.keys(GROUPS).forEach(g=>{
+        const idx=WORDS.map((w,i)=>w.g===g?i:-1).filter(i=>i>=0);
+        const x=idx.reduce((s,i)=>s+PP[i].x,0)/idx.length,y=Math.min(...idx.map(i=>PP[i].y));
+        cand.push({key:'g:'+g,s:GROUPS[g].name.toUpperCase(),x,y,r:12,pri:9,fs:13,font:'600 13px '+MONO,color:g==='capital'?AMBER_T:GROUPS[g].color,alpha:this.halos,pref:'T'});
+      });
+    }
+    const al=this.arrowLabel;
+    if(al&&t>=al.t){const M=this.proj(lerp3(al.a,al.b,.5));
+      cand.push({key:'al',s:al.s,x:M.x,y:M.y,r:10,pri:8,fs:14,font:'600 14px '+MONO,color:al.color,alpha:1,pref:'T'})}
+    if(won){
+      const P=this.proj(BG),pulse=(t*.7)%1;
+      c.globalAlpha=(1-pulse)*.6;c.strokeStyle=AMBER;c.lineWidth=2.5;c.beginPath();c.arc(P.x,P.y,12+pulse*34,0,7);c.stroke();
+    }
+    if(this.probe){
+      const P=this._probeP,pulse=(t*.8)%1;
+      c.globalAlpha=(1-pulse)*.5;c.strokeStyle=COBALT;c.lineWidth=2;c.beginPath();c.arc(P.x,P.y,9+pulse*24,0,7);c.stroke();
+      c.globalAlpha=1;c.fillStyle='#fff';c.beginPath();c.arc(P.x,P.y,11,0,7);c.fill();
+      c.fillStyle=COBALT;c.beginPath();c.arc(P.x,P.y,8,0,7);c.fill();
+      cand.push({key:'probe',s:'«?»',x:P.x,y:P.y,r:12,pri:11,fs:15,font:'600 15px '+MONO,color:COBALT,alpha:1,pref:'T'});
+      if(this.onNear)this.onNear(near);
+    }
+    this.placeLabels(c,cand,obst,dt);
+    c.globalAlpha=1;
+  }
+}
+
+/* ---------- apertura: red animada ---------- */
+const net=(()=>{
+  const cv=document.getElementById('llNet'),ctx=cv.getContext('2d'),Rn=mulberry32(3);
+  const N=Array.from({length:80},()=>({x:380+Rn()*900,y:Rn()*720,vx:(Rn()-.5)*16,vy:(Rn()-.5)*16,c:Rn()<.2}));
+  const pulses=[];let spawn=0,w=0,h=0,px=1;const LINK=150;
+  return {
+    resize(){w=cv.offsetWidth;h=cv.offsetHeight;px=SCALE*DPR;cv.width=Math.max(1,Math.round(w*px));cv.height=Math.max(1,Math.round(h*px))},
+    draw(dt){
+      if(!w)return;
+      ctx.setTransform(px,0,0,px,0,0);ctx.clearRect(0,0,w,h);
+      N.forEach(n=>{if(!reduce){n.x+=n.vx*dt;n.y+=n.vy*dt}
+        if(n.x<260&&n.vx<0||n.x>w&&n.vx>0)n.vx*=-1;if(n.y<0&&n.vy<0||n.y>h&&n.vy>0)n.vy*=-1});
+      const E=[];ctx.strokeStyle='#A9B4C4';ctx.lineWidth=1;
+      for(let i=0;i<N.length;i++)for(let j=i+1;j<N.length;j++){
+        const d=Math.hypot(N[i].x-N[j].x,N[i].y-N[j].y);if(d>LINK)continue;E.push([i,j]);
+        ctx.globalAlpha=(1-d/LINK)*.45;ctx.beginPath();ctx.moveTo(N[i].x,N[i].y);ctx.lineTo(N[j].x,N[j].y);ctx.stroke();
+      }
+      spawn-=dt;
+      if(!reduce&&spawn<=0&&E.length){spawn=.14;const e=E[Rn()*E.length|0];pulses.push(Rn()<.5?{a:e[0],b:e[1],k:0}:{a:e[1],b:e[0],k:0})}
+      for(let i=pulses.length-1;i>=0;i--){
+        const p=pulses[i];p.k+=dt*1.3;if(p.k>=1){pulses.splice(i,1);continue}
+        const A=N[p.a],Bn=N[p.b],x=A.x+(Bn.x-A.x)*p.k,y=A.y+(Bn.y-A.y)*p.k;
+        ctx.globalAlpha=.55*(1-p.k);ctx.strokeStyle=COBALT;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(x,y);ctx.stroke();
+        ctx.globalAlpha=1;ctx.fillStyle=COBALT;ctx.beginPath();ctx.arc(x,y,2.6,0,7);ctx.fill();
+      }
+      N.forEach(n=>{ctx.globalAlpha=n.c?.9:.55;ctx.fillStyle=n.c?COBALT:'#8C93A3';ctx.beginPath();ctx.arc(n.x,n.y,n.c?3.6:2.4,0,7);ctx.fill()});
+      ctx.globalAlpha=1;
+    }
+  };
+})();
+
+/* ---------- espacio de vectores: guion por pasos ---------- */
+const sceneA=new Scene(document.getElementById('llCv'));
+const qrow=document.getElementById('llQrow');
+const TOK=['¿','Cuál','es','la','capital','de','Colombia','?'];
+qrow.innerHTML=TOK.map(t=>`<span class="qc" data-w="${t}">${t}</span>`).join('')+'<span class="qa" id="llQa">→ <b>Bogotá</b></span>';
+const chip=w=>qrow.querySelector(`.qc[data-w="${w}"]`);
+const P0=pos('?'),Pc=pos('capital'),Pk=pos('Colombia');
+const WAY=[P0, lerp3(P0,Pc,.75), add3(Pk,[.7,-.05,0])];
+const ANCH=new Set(['Colombia','Perú','Lima','arepa','cóndor','gobierno','cuál','Medellín']);
+const Q=new Set(['cuál','capital','Colombia']);
+const EX=new Set(['Colombia','Bogotá','Perú','Lima','Francia','París','España','Madrid']);
+const LP=[
+  o=>ANCH.has(o.w)?3:0,
+  o=>ANCH.has(o.w)?2:0,
+  o=>o.g==='pais'||o.g==='capital'?5:0,
+  o=>Q.has(o.w)?4:0,
+  o=>o.w==='capital'?6:Q.has(o.w)?4:0,
+  o=>o.w==='Colombia'?6:Q.has(o.w)?4:0,
+  o=>EX.has(o.w)?5:0
+];
+const nearEl=document.getElementById('llNear');
+nearEl.innerHTML='<li><span class="w"></span><span class="bar"><i></i></span></li>'.repeat(3);
+let lastNear='';
+sceneA.onNear=list=>{
+  const key=list.map(n=>n.o.w+n.d.toFixed(2)).join()+sceneA.hide.size;if(key===lastNear)return;lastNear=key;
+  [...nearEl.children].forEach((li,i)=>{const n=list[i];li.querySelector('.w').textContent=sceneA.hide.has(n.o.w)?'···':n.o.w;
+    li.querySelector('i').style.width=Math.round(100*Math.exp(-n.d*.7))+'%'});
+};
+function setProbe(i,animate){
+  const t=now(),curp=sceneA.probe?sceneA.probe.pos:WAY[0];
+  sceneA.probe={from:animate?curp:WAY[i],to:WAY[i],t0:t,dur:1.8,trail:WAY.slice(0,i),pos:curp};
+}
+function spaceHook(st,fwd,entered){
+  const S=sceneA,t=now(),live=fwd&&!entered;
+  S.hTarget=st===1?1:st>=2?.45:0;
+  S.showGroups=st===1;
+  S.focus=st===2||st===6?new Set(['pais','capital']):null;
+  S.labelPri=LP[st];
+  S.showNear=st>=3&&st<=5;
+  S.hide=st>=3&&st<6?new Set(['Bogotá']):new Set();
+  const want=[];
+  if(st>=2){const al=st>=3&&st<6?.3:1;
+    [['Francia','París'],['España','Madrid'],['Perú','Lima']].forEach(([a,b],i)=>
+      want.push({id:'a'+i,a:pos(a),b:lerp3(pos(a),pos(b),.95),color:COBALT,alpha:al,delay:i*.35}));}
+  if(st>=6)want.push({id:'cp',slide:true,from:pos('Perú'),to:Pk,d:D,delay:0});
+  S.arrows=want.map(w=>{const old=S.arrows.find(a=>a.id===w.id);return Object.assign(w,{t0:old?old.t0:(fwd?t+w.delay:t-5)})});
+  const slideT=st>=6?S.arrows.find(a=>a.id==='cp').t0+1.8:0;
+  S.win=st>=6;S.winT=slideT;
+  S.arrowLabel=st===2?{a:pos('Francia'),b:pos('París'),s:'país → capital',color:COBALT,t:t+(fwd?.9:0)}
+             :st>=6?{a:Pk,b:BG,s:'el mismo desplazamiento',color:AMBER_T,t:slideT}:null;
+  // en el paso final la sonda se retira: la flecha que se desliza cuenta el resultado
+  if(st>=3&&st<=5)setProbe(st-3,live);else{S.probe=null;lastNear=''}
+  // cámara: gira en los pasos 1–2; vista frontal fija desde el paso 3
+  if(st<=1){S.yawT=null;S.pitchT=.3;S.spinT=.08}else{S.yawT=-.3;S.pitchT=.16;S.spinT=0}
+  S.fitSet=null;
+  if(entered)S.prime();
+  document.getElementById('llHud').classList.toggle('on',st>=3&&st<=5);
+  chip('?').classList.toggle('act',st>=3);
+  chip('capital').classList.toggle('hot',st>=4);
+  chip('Colombia').classList.toggle('hot',st>=5);
+  document.getElementById('llQa').classList.toggle('on',st>=6);
+}
+
+/* ---------- IA vs. agente de IA ---------- */
+function modelIcon(cx,cy,r){
+  const nodes=[[cx,cy]];for(let k=0;k<6;k++){const a=k/6*Math.PI*2-Math.PI/2;nodes.push([cx+Math.cos(a)*r*.55,cy+Math.sin(a)*r*.55])}
+  let s=`<g class="model"><circle class="mpulse" cx="${cx}" cy="${cy}" r="${r}"/><circle class="mbg" cx="${cx}" cy="${cy}" r="${r}"/>`;
+  for(let k=1;k<7;k++){const [x,y]=nodes[k],[x2,y2]=nodes[k%6+1];
+    s+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"/><line x1="${x}" y1="${y}" x2="${x2}" y2="${y2}"/>`}
+  nodes.forEach(([x,y],k)=>s+=`<circle class="nd" cx="${x}" cy="${y}" r="${k?r*.09:r*.12}"/>`);
+  return s+'</g>';
+}
+const ICONS={
+  search:'<circle class="ic" cx="17" cy="17" r="7"/><line class="ic" x1="22" y1="22" x2="29" y2="29"/>',
+  pdf:'<path class="ic" d="M12 7h10l6 6v18H12z"/><text x="20" y="27" style="font:700 7px var(--mono)">PDF</text>',
+  code:'<text x="19" y="24" style="font:600 13px var(--mono)">&lt;/&gt;</text>',
+  table:'<rect class="ic" x="10" y="11" width="18" height="16" rx="1.5" style="fill:none"/><line class="ic" x1="10" y1="16.5" x2="28" y2="16.5"/><line class="ic" x1="10" y1="22" x2="28" y2="22"/><line class="ic" x1="16" y1="11" x2="16" y2="27"/><line class="ic" x1="22" y1="11" x2="22" y2="27"/>',
+  memory:'<line class="ic" x1="11" y1="12" x2="27" y2="12"/><line class="ic" x1="11" y1="19" x2="27" y2="19"/><line class="ic" x1="11" y1="26" x2="21" y2="26"/>'
+};
+const tile=(id,x,y,ic)=>`<g class="tool" id="${id}" transform="translate(${x},${y})"><rect class="bg" width="38" height="38" rx="9"/>${ICONS[ic]}</g>`;
+const vsL=document.getElementById('vsL'),vsR=document.getElementById('vsR');
+vsL.innerHTML=
+  `<g class="fade"><rect class="chipb" x="76" y="8" width="360" height="44" rx="12"/><text class="chipt" x="256" y="37">¿Cuál es la capital de Colombia?</text></g>`+
+  `<path class="fl f1" d="M256 58 L256 106"/><polygon class="ah a1" points="249,102 256,113 263,102"/>`+
+  modelIcon(256,165,50)+
+  `<path class="fl f2" d="M256 222 L256 262"/><polygon class="ah a2" points="249,258 256,269 263,258"/>`+
+  `<g class="fade2"><rect class="chipo" x="171" y="272" width="170" height="44" rx="12"/><text class="chipot" x="256" y="302">Bogotá</text></g>`;
+const STN=[['Planifica',250,85],['Actúa',345,180],['Observa',250,275],['¿Listo?',155,180]];
+const TY=[96,142,188,234];
+vsR.innerHTML=
+  `<g class="ag1"><rect class="chipb goalr" x="26" y="4" width="460" height="40" rx="12"/><text class="goalt" x="256" y="30">Objetivo: resumir artículos sobre IA en Colombia</text></g>`+
+  `<g class="ag2"><path class="conn" d="M250 46 L250 71"/><circle class="track" cx="250" cy="180" r="95"/>`+
+  TY.map(y=>`<path class="conn" d="M391 180 L443 ${y+19}"/>`).join('')+`<path class="conn" d="M109 180 L74 180"/></g>`+
+  modelIcon(250,180,40)+
+  `<text class="lapt ag3" id="agLap" x="250" y="246">vuelta 1</text>`+
+  `<circle class="dot ag3" id="agDot" cx="250" cy="85" r="9"/>`+
+  `<g class="ag3">`+STN.map(([t,x,y],i)=>`<g class="stn" id="agStn${i}"><rect x="${x-46}" y="${y-14}" width="92" height="28" rx="14"/><text x="${x}" y="${y+5}">${t}</text></g>`).join('')+
+  `<text class="smal" x="462" y="86">HERRAMIENTAS</text>`+
+  ['search','pdf','code','table'].map((ic,i)=>tile('agTool'+i,443,TY[i],ic)).join('')+
+  tile('agMem',36,161,'memory')+`<text class="smal" x="55" y="214">MEMORIA</text></g>`+
+  `<g class="aout"><path class="conn" d="M150 194 L112 276"/><rect class="chipo" x="8" y="276" width="150" height="38" rx="10"/><text class="chipot s" x="83" y="301">tabla.xlsx ✓</text></g>`;
+const dotEl=document.getElementById('agDot'),lapEl=document.getElementById('agLap');
+const stnEl=STN.map((_,i)=>document.getElementById('agStn'+i)),toolEl=[0,1,2,3].map(i=>document.getElementById('agTool'+i)),memEl=document.getElementById('agMem');
+const AG={t0:null};
+const LAP=2.2,P_END=2.75; // tres vueltas; termina en «¿Listo?»
+function agentTick(t){
+  if(AG.t0==null)return;
+  const p=reduce?P_END:clamp((t-AG.t0)/LAP,0,P_END), done=p>=P_END;
+  const th=-Math.PI/2+2*Math.PI*p;
+  dotEl.setAttribute('cx',(250+95*Math.cos(th)).toFixed(1));dotEl.setAttribute('cy',(180+95*Math.sin(th)).toFixed(1));
+  const f=p%1,q=f*4,s=Math.round(q)%4,near=Math.abs(q-Math.round(q))<.22;
+  stnEl.forEach((e,i)=>e.classList.toggle('on',!done&&near&&i===s&&p>0));
+  stnEl[3].classList.toggle('ok',done);
+  stnEl[3].querySelector('text').textContent=done?'¡Listo!':'¿Listo?';
+  [0,1,2].forEach(n=>{toolEl[n].classList.toggle('on',p>=.25+n&&p<.75+n);toolEl[n].classList.toggle('done',p>=.75+n)});
+  toolEl[3].classList.toggle('on',done);
+  memEl.classList.toggle('done',p>=.75);
+  lapEl.textContent=done?'3 vueltas':'vuelta '+Math.min(3,Math.floor(p)+1);
+  vsR.classList.toggle('fin',done);
+  vsR.classList.toggle('run',!done&&p>0);
+}
+function versusHook(st,fwd,entered){
+  const inst=!fwd||entered;
+  vsL.classList.toggle('inst',inst);vsR.classList.toggle('inst',inst);
+  vsL.classList.toggle('go',st>=1);
+  vsR.classList.toggle('ag',st>=2);
+  if(st>=2){if(AG.t0==null)AG.t0=inst?now()-100:now()+1.2}
+  else{AG.t0=null;
+    [...stnEl,...toolEl,memEl].forEach(e=>e.classList.remove('on','done','ok'));
+    stnEl[3].querySelector('text').textContent='¿Listo?';
+    dotEl.setAttribute('cx',250);dotEl.setAttribute('cy',85);lapEl.textContent='vuelta 1';
+    vsR.classList.remove('fin','run');}
+  agentTick(now());
+}
+
+/* ---------- enganche con el motor de la charla ---------- */
+function markSteps(sec,st){
+  sec.querySelectorAll('[data-s]').forEach(e=>{const k=+e.dataset.s;e.classList.toggle('on',k<=st);e.classList.toggle('cur',k===st)});
+}
+// s._steps avanza con animación; al retroceder, el motor llama a _reset y repite los pasos:
+// la bandera _replay hace que esa repetición sea instantánea
+function stepped(sec,n,hook){
+  sec._steps=Array.from({length:n-1},(_,i)=>()=>{const live=!sec._replay;markSteps(sec,i+1);hook(i+1,live,false)});
+  sec._reset=()=>{sec._replay=true;queueMicrotask(()=>{sec._replay=false});markSteps(sec,0);hook(0,false,true)};
+}
+const secIntro=document.querySelector('.llm-intro'),secSpace=document.querySelector('.llm-space'),secVs=document.querySelector('.llm-vs');
+SLIDE_INIT.llmIntro=()=>{measure();net.resize()};
+SLIDE_INIT.llmSpace=(s,first)=>{
+  if(first)stepped(s,7,spaceHook);
+  measure();sceneA.resize();sceneA.appear=0;sceneA.arrows=[];sceneA.probe=null;
+};
+SLIDE_INIT.llmResumen=()=>{const c=document.getElementById('llChain');c.classList.remove('on');void c.offsetWidth;requestAnimationFrame(()=>c.classList.add('on'))};
+SLIDE_INIT.llmVersus=(s,first)=>{if(first)stepped(s,3,versusHook)};
+addEventListener('resize',()=>{measure();
+  if(secIntro.classList.contains('active'))net.resize();
+  if(secSpace.classList.contains('active'))sceneA.resize();
+});
+
+let last=now();
+function loop(){
+  const t=now(),dt=Math.min(.1,t-last);last=t;
+  if(secIntro.classList.contains('active'))net.draw(dt);
+  if(secSpace.classList.contains('active'))sceneA.draw(dt,t);
+  if(secVs.classList.contains('active'))agentTick(t);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+<script>
+/* ---------- prompt de ejemplo: el objetivo editable alimenta el prompt; botón copiar ---------- */
+SLIDE_INIT.promptEj=(s,first)=>{
+  if(!first) return;
+  const obj=document.getElementById('peObj'), ph=document.getElementById('pePh'), txt=document.getElementById('peTxt'), btn=document.getElementById('peCopy');
+  obj.addEventListener('input',()=>{ ph.textContent=obj.textContent.trim()||'…'; });
+  obj.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); obj.blur(); } });
+  const done=()=>{ btn.textContent='Copiado ✓'; setTimeout(()=>{ btn.textContent='Copiar prompt'; },1800); };
+  const fallback=()=>{ const r=document.createRange(); r.selectNodeContents(txt); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    try{ document.execCommand('copy'); done(); }catch(_){} sel.removeAllRanges(); };
+  btn.addEventListener('click',()=>{
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(txt.innerText).then(done,fallback);
+    else fallback();
+  });
+};
+</script>
+<script>
+(function(){
+  const stage = document.getElementById('stage');
+  const slides = [...document.querySelectorAll('.slide')];
+  const wipe = document.getElementById('wipe');
+  const fill = document.querySelector('#progress .fill');
+  const dot = document.querySelector('#progress .dot');
+  const count = document.getElementById('count');
+  let idx = 0, busy = false;
+  window.SLIDE_INIT = window.SLIDE_INIT || {};
+  const started = new Set();
+
+  function fit(){
+    const s = Math.min(innerWidth/1600, innerHeight/900);
+    stage.style.transform = `scale(${s})`;
+  }
+  addEventListener('resize', fit); fit();
+
+  const stepsOf = s => [...s.querySelectorAll('[data-step]')].sort((a,b)=>a.dataset.step-b.dataset.step);
+  const shownCount = s => s.querySelectorAll('[data-step].shown').length;
+
+  /* número de lámina + avance de pasos dentro de ella */
+  function updCount(){
+    const s = slides[idx];
+    const total = stepsOf(s).length + (s._steps ? s._steps.length : 0);
+    const done = shownCount(s) + (s._k || 0);
+    const num = String(idx+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+    let extra = '';
+    if(total) extra = `<span class="st">· ${done ? `paso ${done} de ${total}` : `${total} pasos`}</span>`;
+    count.innerHTML = num + extra;
+  }
+
+  function chrome(){
+    const pct = slides.length>1 ? idx/(slides.length-1) : 0;
+    if(fill) fill.style.width = (pct*100)+'%';
+    if(dot) dot.style.left = (pct*100)+'%';
+    updCount();
+    history.replaceState(null,'','#'+(idx+1));
+  }
+
+  function activate(n, dir, showAll){
+    const cur = slides[idx], nxt = slides[n];
+    cur.classList.remove('active','enter-next','enter-prev');
+    cur.classList.add(dir>0?'leave-next':'leave-prev');
+    setTimeout(()=>cur.classList.remove('leave-next','leave-prev'),560);
+    stepsOf(nxt).forEach(e=>{ e.classList.toggle('shown', !!showAll); e.classList.remove('spot-on'); });
+    nxt.classList.remove('enter-next','enter-prev');
+    void nxt.offsetWidth;
+    nxt.classList.add('active', dir>0?'enter-next':'enter-prev');
+    idx = n; chrome();
+    const key = nxt.dataset.init;
+    if(key && SLIDE_INIT[key]){ SLIDE_INIT[key](nxt, !started.has(key)); started.add(key); }
+    prepSteps(nxt, showAll);
+    updCount();
+  }
+  function prepSteps(s, showAll){
+    if(!s._steps) return;
+    if(s._reset) s._reset();
+    s._k = 0;
+    if(showAll){ s._steps.forEach(f=>f()); s._k = s._steps.length; }
+  }
+
+  function go(n, dir, showAll){
+    if(busy || n<0 || n>=slides.length || n===idx) return;
+    busy = true;
+    dir = dir || (n>idx?1:-1);
+    wipe.classList.remove('go','back'); void wipe.offsetWidth;
+    wipe.classList.add('go'); if(dir<0) wipe.classList.add('back');
+    setTimeout(()=>activate(n, dir, showAll), 330);
+    setTimeout(()=>{ busy=false; wipe.classList.remove('go','back'); }, 820);
+  }
+
+  function next(){
+    const s = slides[idx], st = stepsOf(s), k = shownCount(s);
+    if(k < st.length){
+      st.forEach(e=>e.classList.remove('spot-on'));
+      st[k].classList.add('shown','spot-on');
+      const f=st[k].dataset.onshow; if(f&&SLIDE_INIT[f]) SLIDE_INIT[f](s);
+      updCount(); return;
+    }
+    if(s._steps && (s._k||0) < s._steps.length){ s._steps[s._k](); s._k++; updCount(); return; }
+    go(idx+1, 1, false);
+  }
+  function prev(){
+    const s = slides[idx], st = stepsOf(s), k = shownCount(s);
+    if(k > 0){
+      st.forEach(e=>e.classList.remove('spot-on'));
+      st[k-1].classList.remove('shown');
+      if(k-2 >= 0) st[k-2].classList.add('spot-on');
+      updCount(); return;
+    }
+    if(s._steps && s._k > 0){ const back = s._k-1; if(s._reset) s._reset(); for(let i=0;i<back;i++) s._steps[i](); s._k = back; updCount(); return; }
+    go(idx-1, -1, true);
+  }
+  window.PRES = {next, prev, go};
+
+  addEventListener('keydown', e=>{
+    const t = e.target.tagName;
+    if(t==='INPUT' || t==='TEXTAREA' || e.target.isContentEditable) return;
+    if(['ArrowRight','PageDown'].includes(e.key) || (e.key===' ' && t!=='BUTTON')){ e.preventDefault(); next(); }
+    else if(['ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); prev(); }
+    else if(e.key==='Home'){ go(0,-1,true); }
+    else if(e.key==='End'){ go(slides.length-1,1,true); }
+    else if(e.key.toLowerCase()==='f'){ document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  });
+  const bP=document.getElementById('bPrev'), bN=document.getElementById('bNext'), prog=document.getElementById('progress');
+  if(bP) bP.onclick = prev;
+  if(bN) bN.onclick = next;
+  if(prog) prog.addEventListener('click', e=>{
+    const r = e.currentTarget.getBoundingClientRect();
+    const n = Math.round((e.clientX-r.left)/r.width*(slides.length-1));
+    go(n, n>idx?1:-1, true);
+  });
+
+  /* ---------- temporizadores ---------- */
+  document.querySelectorAll('.timer[data-min]').forEach(el=>{
+    const total = +el.dataset.min*60; let left = total, iv = null;
+    const R = 62, C = 2*Math.PI*R;
+    el.innerHTML = `<svg viewBox="0 0 150 150"><circle class="track" cx="75" cy="75" r="${R}"/><circle class="arc" cx="75" cy="75" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg>
+      <div><div class="t-read"></div><div class="t-ctrl"><button data-a="p">Iniciar</button><button data-a="r">Reiniciar</button></div></div>`;
+    const arc = el.querySelector('.arc'), read = el.querySelector('.t-read'), bp = el.querySelector('[data-a=p]');
+    const draw = ()=>{ const m=Math.floor(left/60), s=left%60; read.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; arc.style.strokeDashoffset = C*(1-left/total); el.classList.toggle('low', left<=120); };
+    bp.onclick = ()=>{ if(iv){clearInterval(iv);iv=null;bp.textContent='Continuar';} else {iv=setInterval(()=>{ if(left>0){left--;draw();} else {clearInterval(iv);iv=null;bp.textContent='Terminado';} },1000); bp.textContent='Pausar';} };
+    el.querySelector('[data-a=r]').onclick = ()=>{ clearInterval(iv); iv=null; left=total; bp.textContent='Iniciar'; draw(); };
+    draw();
+  });
+
+  /* ---------- selectores de detalle ---------- */
+  document.querySelectorAll('[data-picker]').forEach(group=>{
+    const target = document.querySelector(group.dataset.picker);
+    const all = [...group.querySelectorAll('[data-title]')];
+    all.forEach((item,n)=>{
+      item.setAttribute('tabindex','0'); item.setAttribute('role','button');
+      const pick = ()=>{
+        all.forEach(i=>i.classList.remove('on'));
+        item.classList.add('on');
+        spot(all, item);
+        target.innerHTML = `<h4>${dstep(item.dataset.pickOrder||n+1, item.dataset.pickTotal||all.length)}${item.dataset.title}</h4><div>${item.dataset.text||''}</div>`;
+        target.classList.remove('swap'); void target.offsetWidth; target.classList.add('swap');
+      };
+      item.addEventListener('click', pick);
+      item.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.stopPropagation(); pick(); }});
+    });
+  });
+
+  /* inicio */
+  const h = parseInt(location.hash.slice(1));
+  if(h>1 && h<=slides.length){ idx = h-1; }
+  slides[idx].classList.add('active');
+  stepsOf(slides[idx]).forEach(e=>e.classList.add('shown'));
+  if(idx===0) stepsOf(slides[0]).forEach(e=>e.classList.remove('shown'));
+  const k0 = slides[idx].dataset.init; if(k0 && SLIDE_INIT[k0]){ SLIDE_INIT[k0](slides[idx], true); started.add(k0); }
+  prepSteps(slides[idx], false);
+  chrome();
+})();
+
+</script>
+</body>
+</html>
